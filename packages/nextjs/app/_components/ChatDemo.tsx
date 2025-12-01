@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { RainbowKitCustomConnectButton } from "~~/components/helper/RainbowKitCustomConnectButton";
 import { FHEVMProvider, useFHEVM, useInMemoryStorage, useFHEDecrypt } from "@fhevm/sdk/react";
-import { FhevmInstance } from "@fhevm/sdk";
+// FhevmInstance type removed - not used directly
 import { ethers } from "ethers";
 import { getContractConfig } from "~~/contracts";
 
@@ -114,16 +114,15 @@ function formatTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function formatDate(date: Date): string {
-  const today = new Date();
-  if (date.toDateString() === today.toDateString()) return "Today";
-  
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
-  
-  return date.toLocaleDateString();
-}
+// formatDate not currently used but kept for future use
+// function formatDate(date: Date): string {
+//   const today = new Date();
+//   if (date.toDateString() === today.toDateString()) return "Today";
+//   const yesterday = new Date(today);
+//   yesterday.setDate(yesterday.getDate() - 1);
+//   if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+//   return date.toLocaleDateString();
+// }
 
 // ============================================================================
 // Chat Demo Content Component
@@ -144,7 +143,7 @@ function ChatDemoContent() {
   }), [chainId]);
 
   // FHEVM hooks
-  const { instance, isInitialized: isReady, status, error: fhevmError } = useFHEVM(fhevmConfig);
+  const { instance, isInitialized: isReady, status } = useFHEVM(fhevmConfig);
 
   // Ethers signer
   const ethersSigner = useMemo(() => {
@@ -786,7 +785,7 @@ function ChatDemoContent() {
                         }`}
                       >
                         <p className="break-words italic">
-                          [Encrypted - Click "Decrypt All" to view]
+                          [Encrypted - Click &quot;Decrypt All&quot; to view]
                         </p>
                         <p className={`text-xs mt-1 ${isFromMe ? "text-blue-200" : "text-gray-500"}`}>
                           {formatTime(new Date(Number(msg.header.timestamp) * 1000))}
