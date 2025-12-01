@@ -1,0 +1,46 @@
+# FHEVM
+fhevmTemp
+
+# Build directories
+.coverage_artifacts
+.coverage_cache
+.coverage_contracts
+artifacts
+build
+cache
+coverage
+dist
+node_modules
+types
+tmp
+
+# Deployment data (may contain sensitive addresses)
+deployments
+
+# Environment files (SENSITIVE - NEVER COMMIT!)
+*.env
+.env
+.env.*
+.env.local
+
+# Logs
+*.log
+
+# OS & IDE
+.DS_Store
+.pnp.*
+
+# Test & coverage
+coverage.json
+
+# Lock files (use root lock file)
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Private keys & secrets (CRITICAL)
+*.pem
+*.key
+**/secrets.*
+**/private.*
+*.secret

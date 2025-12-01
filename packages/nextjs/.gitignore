@@ -1,0 +1,47 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js build output
+/.next/
+/out/
+.vercel
+
+# Production
+/build
+
+# Misc
+.DS_Store
+*.pem
+*.key
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment files (SENSITIVE - NEVER COMMIT!)
+.env
+.env.*
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Config files with secrets
+ipfs-upload.config.json
+**/secrets.*
+**/private.*

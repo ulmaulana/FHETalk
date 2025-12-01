@@ -1,0 +1,54 @@
+# Environment files (SENSITIVE - NEVER COMMIT)
+.env
+.env.*
+.env.local
+.env.development
+.env.staging
+.env.production
+.env.test
+*.env
+
+# Dependencies
+node_modules
+packages/*/node_modules
+
+# Build outputs
+packages/*/dist
+packages/*/.next
+packages/*/out
+packages/*/build
+.next
+out
+build
+
+# Cache & temp
+packages/*/.turbo
+packages/*/coverage
+.turbo
+cache
+tmp*
+*.tmp
+*.log
+
+# IDE & OS
+.DS_Store
+packages/*/.DS_Store
+.vscode
+.idea
+*.swp
+*.swo
+
+# Hardhat specific
+packages/hardhat/artifacts
+packages/hardhat/cache
+packages/hardhat/deployments
+packages/hardhat/types
+
+# Private keys & secrets (CRITICAL)
+*.pem
+*.key
+**/secrets.*
+**/private.*
+
+# Vercel
+.vercel
