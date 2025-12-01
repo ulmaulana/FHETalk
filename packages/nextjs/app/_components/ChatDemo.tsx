@@ -199,7 +199,7 @@ function ChatDemoContent() {
   } = useFHEDecrypt({
     instance,
     ethersSigner: ethersSigner as any,
-    fhevmDecryptionSignatureStorage: fhevmDecryptionSignatureStorage.storage,
+    fhevmDecryptionSignatureStorage,
     requests,
   });
 
