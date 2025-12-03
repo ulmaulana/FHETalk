@@ -192,6 +192,7 @@ function ChatDemoContent() {
   const [showNewChat, setShowNewChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileSidebar, setShowMobileSidebar] = useState(true);
+  const [activeTab, setActiveTab] = useState<"chats" | "contacts">("chats");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Messages state
@@ -675,12 +676,12 @@ function ChatDemoContent() {
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Status Badge */}
+          {/* FHEVM Status Badge */}
           <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
             isReady ? "bg-green-500/20 text-green-300" : "bg-amber-500/20 text-amber-300"
           }`}>
-            <span className={`w-2 h-2 rounded-full ${isReady ? "bg-green-400" : "bg-amber-400"}`}></span>
-            {isReady ? "Connected" : status}
+            <span className={`w-2 h-2 rounded-full ${isReady ? "bg-green-400 animate-pulse" : "bg-amber-400"}`}></span>
+            FHEVM: {isReady ? "Ready" : status}
           </div>
           
           {/* Action Buttons */}
@@ -697,12 +698,13 @@ function ChatDemoContent() {
           <button
             onClick={handleDecrypt}
             disabled={isProcessing || !canDecrypt || allHandles.length === 0}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 rounded-xl transition-colors disabled:opacity-50"
             title="Decrypt messages"
           >
             <svg className={`w-5 h-5 ${isDecrypting ? "animate-pulse" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
             </svg>
+            <span className="text-sm font-medium hidden md:inline">Decrypt Message</span>
           </button>
           
           {/* Wallet Connect */}
@@ -710,15 +712,40 @@ function ChatDemoContent() {
         </div>
       </div>
 
-        {/* Status Message */}
+        {/* Status Message - Toast Style */}
         {statusMessage && (
-          <div className="bg-blue-500 text-white px-4 py-2 text-sm flex items-center justify-between flex-shrink-0">
-          <span>{statusMessage}</span>
-            <button onClick={() => setStatusMessage("")} className="hover:bg-white/20 rounded-lg p-1">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-lg border ${
+              statusMessage.toLowerCase().includes('error') || statusMessage.toLowerCase().includes('invalid') || statusMessage.toLowerCase().includes('failed')
+                ? 'bg-red-50 border-red-200 text-red-800'
+                : statusMessage.toLowerCase().includes('success') || statusMessage.toLowerCase().includes('sent')
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-gray-900 border-gray-700 text-white'
+            }`}>
+              {/* Icon */}
+              {statusMessage.toLowerCase().includes('error') || statusMessage.toLowerCase().includes('invalid') || statusMessage.toLowerCase().includes('failed') ? (
+                <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : statusMessage.toLowerCase().includes('success') || statusMessage.toLowerCase().includes('sent') ? (
+                <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+              <span className="text-sm font-medium">{statusMessage}</span>
+              <button 
+                onClick={() => setStatusMessage("")}
+                className="p-1 hover:bg-black/10 rounded-lg transition-colors ml-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
 
@@ -732,110 +759,186 @@ function ChatDemoContent() {
             transition-transform duration-300 ease-in-out
             lg:flex
           `}>
-            {/* Sidebar Header */}
-            <div className="p-4 border-b border-gray-100 flex-shrink-0">
-            {/* Search Input */}
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search chats or contacts..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all"
-              />
-            </div>
-          </div>
-
-            {/* Chat List */}
-            <div className="flex-1 overflow-y-auto">
-              {filteredChats.length === 0 && filteredContacts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
-                  <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            {/* Sidebar Header with Tabs */}
+            <div className="border-b border-gray-200 flex-shrink-0">
+              {/* Tabs */}
+              <div className="flex">
+                <button
+                  onClick={() => setActiveTab("chats")}
+                  className={`flex-1 py-3 text-sm font-semibold transition-all relative ${
+                    activeTab === "chats" 
+                      ? "text-amber-600" 
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Chats
+                    {filteredChats.length > 0 && (
+                      <span className="bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded-full">{filteredChats.length}</span>
+                    )}
+                  </div>
+                  {activeTab === "chats" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab("contacts")}
+                  className={`flex-1 py-3 text-sm font-semibold transition-all relative ${
+                    activeTab === "contacts" 
+                      ? "text-amber-600" 
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    Contacts
+                    {contacts.length > 0 && (
+                      <span className="bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">{contacts.length}</span>
+                    )}
+                  </div>
+                  {activeTab === "contacts" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500" />
+                  )}
+                </button>
+              </div>
+              
+              {/* Search Input */}
+              <div className="p-3">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  <p className="text-center">No conversations yet</p>
-                  <p className="text-sm text-center mt-1">Start a new chat to begin</p>
+                  <input
+                    type="text"
+                    placeholder={activeTab === "chats" ? "Search chats..." : "Search contacts..."}
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all"
+                  />
                 </div>
-              ) : (
+              </div>
+            </div>
+
+            {/* Tab Content */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Chats Tab */}
+              {activeTab === "chats" && (
                 <>
-                  {/* Recent Chats Section */}
-                  {filteredChats.length > 0 && (
-                    <div>
-                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
-                        Recent Chats
-                      </div>
-                      {filteredChats.map(chat => (
-                        <button
-                          key={chat.address}
-                          onClick={() => handleSelectChat(chat.address)}
-                          className={`w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100 ${
-                            selectedContact === chat.address ? "bg-amber-50 border-l-4 border-l-amber-500" : ""
-                          }`}
-                        >
-                          {/* Avatar */}
-                          <div className={`w-12 h-12 rounded-2xl ${generateAvatarColor(chat.address)} flex items-center justify-center text-white font-semibold text-lg flex-shrink-0`}>
+                  {filteredChats.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
+                      <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <p className="text-center font-medium">No conversations yet</p>
+                      <p className="text-sm text-center mt-1">Start a new chat to begin</p>
+                    </div>
+                  ) : (
+                    filteredChats.map(chat => (
+                      <button
+                        key={chat.address}
+                        onClick={() => handleSelectChat(chat.address)}
+                        className={`w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-all border-b border-gray-100 relative ${
+                          selectedContact === chat.address 
+                            ? "bg-amber-50 border-l-4 border-l-amber-500" 
+                            : "border-l-4 border-l-transparent"
+                        }`}
+                      >
+                        {/* Avatar with Active Indicator */}
+                        <div className="relative flex-shrink-0">
+                          <div className={`w-12 h-12 rounded-2xl ${generateAvatarColor(chat.address)} flex items-center justify-center text-white font-semibold text-lg`}>
                             {chat.name.charAt(0).toUpperCase()}
                           </div>
-                          
-                          {/* Chat Info */}
-                          <div className="flex-1 min-w-0 text-left">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="font-semibold text-gray-900 truncate">{chat.name}</span>
-                              <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                                {formatRelativeTime(chat.lastMessageTime)}
-                              </span>
+                          {selectedContact === chat.address && (
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center border-2 border-white">
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
                             </div>
-                            <div className="flex items-center gap-2">
-                              {chat.isEncrypted && (
-                                <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                              )}
-                              <p className={`text-sm truncate ${chat.isEncrypted ? "text-gray-400 italic" : "text-gray-600"}`}>
-                                {chat.lastMessage}
-                              </p>
-                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Chat Info */}
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-gray-900 truncate">{chat.name}</span>
+                            <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                              {formatRelativeTime(chat.lastMessageTime)}
+                            </span>
                           </div>
-                        </button>
-                      ))}
-                    </div>
+                          <div className="flex items-center gap-2">
+                            {chat.isEncrypted && (
+                              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                              </svg>
+                            )}
+                            <p className={`text-sm truncate ${chat.isEncrypted ? "text-gray-400 italic" : "text-gray-600"}`}>
+                              {chat.lastMessage}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))
                   )}
+                </>
+              )}
 
-                  {/* Contacts Section */}
-                  {filteredContacts.length > 0 && (
-                    <div>
-                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-50">
-                        Contacts
-                      </div>
-                      {filteredContacts.map(contact => (
-                        <div
-                          key={contact.address}
-                          className="p-4 flex items-center gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100"
-                        >
-                          <div className={`w-10 h-10 rounded-xl ${generateAvatarColor(contact.address)} flex items-center justify-center text-white font-semibold`}>
+              {/* Contacts Tab */}
+              {activeTab === "contacts" && (
+                <>
+                  {filteredContacts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
+                      <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <p className="text-center font-medium">No contacts yet</p>
+                      <p className="text-sm text-center mt-1">Add contacts to start chatting</p>
+                    </div>
+                  ) : (
+                    filteredContacts.map(contact => (
+                      <div
+                        key={contact.address}
+                        className={`p-4 flex items-center gap-3 hover:bg-gray-50 transition-all border-b border-gray-100 ${
+                          selectedContact === contact.address 
+                            ? "bg-amber-50 border-l-4 border-l-amber-500" 
+                            : "border-l-4 border-l-transparent"
+                        }`}
+                      >
+                        {/* Avatar with Active Indicator */}
+                        <div className="relative flex-shrink-0">
+                          <div className={`w-12 h-12 rounded-2xl ${generateAvatarColor(contact.address)} flex items-center justify-center text-white font-semibold text-lg`}>
                             {contact.name.charAt(0).toUpperCase()}
                           </div>
-                          <button
-                            onClick={() => handleSelectChat(contact.address)}
-                            className="flex-1 min-w-0 text-left"
-                          >
-                            <div className="font-medium text-gray-900 truncate">{contact.name}</div>
-                            <div className="text-xs text-gray-500">{shortenAddress(contact.address)}</div>
-                          </button>
-                          <button
-                            onClick={() => removeContact(contact.address)}
-                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                          {selectedContact === contact.address && (
+                            <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center border-2 border-white">
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
+                        <button
+                          onClick={() => handleSelectChat(contact.address)}
+                          className="flex-1 min-w-0 text-left"
+                        >
+                          <div className="font-semibold text-gray-900 truncate">{contact.name}</div>
+                          <div className="text-xs text-gray-500">{shortenAddress(contact.address)}</div>
+                        </button>
+                        <button
+                          onClick={() => removeContact(contact.address)}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                          title="Remove contact"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))
                   )}
                 </>
               )}
@@ -926,17 +1029,6 @@ function ChatDemoContent() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-gray-900 truncate">{getContactName(selectedContact)}</h3>
                   <p className="text-xs text-gray-500 truncate">{selectedContact}</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => addContact(selectedContact)}
-                    className="p-2.5 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"
-                    title="Add to contacts"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                    </svg>
-                  </button>
                 </div>
               </div>
             ) : (
