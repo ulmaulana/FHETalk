@@ -650,28 +650,10 @@ function ChatDemoContent() {
 
   // ========== RENDER ==========
 
-  if (!isConnected) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <div className="bg-white border border-gray-200 shadow-2xl p-8 text-center rounded-2xl max-w-md w-full">
-          <div className="mb-6">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-amber-500 text-white text-4xl font-bold shadow-lg">
-              FHE
-            </div>
-          </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-3">FHETalk</h2>
-          <p className="text-gray-600 mb-8">Private messaging powered by Fully Homomorphic Encryption</p>
-          <RainbowKitCustomConnectButton />
-          <p className="text-gray-500 text-sm mt-6">Your messages are encrypted end-to-end</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="h-screen w-screen bg-gray-100 flex items-center justify-center p-0 md:p-4 overflow-hidden">
-      {/* Main App Container */}
-      <div className="w-full h-full md:max-w-[1600px] md:max-h-[900px] md:h-[95vh] bg-gray-100 md:rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+    <div className="h-screen w-screen bg-white overflow-hidden">
+      {/* Main App Container - Full Screen */}
+      <div className="w-full h-full flex flex-col">
         {/* App Header */}
         <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between shadow-lg flex-shrink-0">
         <div className="flex items-center gap-3">
@@ -722,6 +704,9 @@ function ChatDemoContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
             </svg>
           </button>
+          
+          {/* Wallet Connect */}
+          <RainbowKitCustomConnectButton />
         </div>
       </div>
 
@@ -742,7 +727,7 @@ function ChatDemoContent() {
           {/* Sidebar */}
           <div className={`
             ${showMobileSidebar ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-            fixed lg:relative inset-y-0 left-0 z-30 w-80 lg:w-[380px] 
+            fixed lg:relative inset-y-0 left-0 z-30 w-80 lg:w-[340px] 
             bg-white border-r border-gray-200 flex flex-col
             transition-transform duration-300 ease-in-out
             lg:flex
