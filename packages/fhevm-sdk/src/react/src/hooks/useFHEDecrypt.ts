@@ -138,16 +138,47 @@ export function useFHEDecrypt(params: {
       }
 
       setMessage("Calling FHEVM userDecrypt...")
-      const mutableReqs = thisRequests.map(r => ({ 
-        handle: r.handle, 
-        contractAddress: r.contractAddress 
-      }))
       
-      logger.debug('Calling userDecrypt', {
+      // Build requests array - ensure it's a proper mutable array
+      const mutableReqs: Array<{handle: string, contractAddress: string}> = []
+      for (const r of thisRequests) {
+        mutableReqs.push({ 
+          handle: String(r.handle), 
+          contractAddress: String(r.contractAddress)
+        })
+      }
+      
+      // Ensure contractAddresses is a proper array (not a getter or proxy)
+      const contractAddressesArray: string[] = []
+      const sigContracts = sig.contractAddresses
+      if (Array.isArray(sigContracts)) {
+        for (const addr of sigContracts) {
+          contractAddressesArray.push(String(addr))
+        }
+      } else if (sigContracts) {
+        contractAddressesArray.push(String(sigContracts))
+      }
+      
+      // Log all parameters for debugging
+      logger.debug('userDecrypt parameters', {
         requestCount: mutableReqs.length,
+        requests: JSON.stringify(mutableReqs),
+        privateKeyType: typeof sig.privateKey,
+        publicKeyType: typeof sig.publicKey,
+        signatureType: typeof sig.signature,
+        contractAddresses: JSON.stringify(contractAddressesArray),
         userAddress: sig.userAddress,
-        contractAddresses: sig.contractAddresses
+        startTimestamp: sig.startTimestamp,
+        durationDays: sig.durationDays
       })
+
+      // Validate before calling
+      if (!Array.isArray(mutableReqs) || mutableReqs.length === 0) {
+        throw new Error(`Invalid requests: expected non-empty array, got ${typeof mutableReqs}`)
+      }
+      if (!Array.isArray(contractAddressesArray) || contractAddressesArray.length === 0) {
+        throw new Error(`Invalid contractAddresses: expected non-empty array, got ${typeof contractAddressesArray}`)
+      }
 
       let res
       try {
@@ -156,7 +187,7 @@ export function useFHEDecrypt(params: {
           sig.privateKey,
           sig.publicKey,
           sig.signature,
-          sig.contractAddresses,
+          contractAddressesArray,
           sig.userAddress,
           sig.startTimestamp,
           sig.durationDays,
@@ -169,6 +200,29 @@ export function useFHEDecrypt(params: {
         if (errorMessage.includes('not authorized') || errorMessage.includes('not authorized to user decrypt')) {
           const helpfulMessage = `Authorization required: You must call the contract method (e.g., getEncryptedResults or getCurrentVoteCounts) as a WRITE transaction first to authorize yourself for decryption. The contract will call FHE.allow() to grant you permission. Error: ${errorMessage}`
           throw new Error(helpfulMessage)
+        }
+        
+        // Check if this is a network/fetch error (Zama relayer service unreachable)
+        if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError') || errorMessage.includes('fetch')) {
+          const networkHelpMessage = `Zama Relayer Service unavailable: The decryption service cannot be reached. This could be due to:
+1. Zama relayer service is temporarily down
+2. Network/firewall blocking the connection
+3. CORS issue with the browser
+4. Rate limiting
+
+Please try again in a few moments, or check your network connection. Error: ${errorMessage}`
+          throw new Error(networkHelpMessage)
+        }
+        
+        // Check for internal SDK errors (like n.reduce is not a function)
+        if (errorMessage.includes('reduce is not a function') || errorMessage.includes('is not a function')) {
+          const sdkErrorMessage = `Zama SDK internal error: The decryption request failed due to an internal SDK issue. This usually means:
+1. The handle format is invalid
+2. The relayer returned an unexpected response
+3. There's a version mismatch between SDK and relayer
+
+Try refreshing the page and loading messages again. Error: ${errorMessage}`
+          throw new Error(sdkErrorMessage)
         }
         
         throw new Error(`userDecrypt failed: ${errorMessage}`)
