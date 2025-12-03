@@ -39,12 +39,10 @@ export const RainbowKitCustomConnectButton = () => {
               }
 
               return (
-                <div className="flex items-center gap-2 bg-gray-100 rounded-2xl px-3 py-2">
-                  <div className="flex flex-col items-end">
-                    <Balance address={account.address as Address} className="min-h-0 h-auto text-sm font-semibold text-gray-900" />
-                    <span className="text-xs text-gray-500">{chain.name}</span>
-                  </div>
-                  <div className="w-px h-8 bg-gray-300" />
+                <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-2.5 py-1.5">
+                  <Balance address={account.address as Address} className="min-h-0 h-auto text-sm font-semibold text-gray-900 whitespace-nowrap" />
+                  <span className="text-[10px] text-gray-400 px-1.5 py-0.5 bg-gray-200 rounded-md whitespace-nowrap">{chain.name}</span>
+                  <div className="w-px h-5 bg-gray-300" />
                   <AddressInfoDropdown
                     address={account.address as Address}
                     displayName={account.displayName}
