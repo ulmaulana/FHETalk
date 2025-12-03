@@ -670,13 +670,13 @@ function ChatDemoContent() {
           <Image 
             src="/FHETalk_logo.png" 
             alt="FHETalk Logo" 
-            width={32} 
-            height={32} 
-            className="rounded-full"
+            width={52} 
+            height={52} 
+            className="rounded-xl"
           />
           <div>
-            <h1 className="font-semibold text-lg">FHETalk</h1>
-            <p className="text-xs text-white/70 hidden sm:block">End-to-end encrypted messaging</p>
+            <h1 className="font-bold text-lg leading-none">FHETalk</h1>
+            <p className="text-[10px] text-white/60 hidden sm:block leading-none mt-0.5">End-to-end encrypted messaging</p>
           </div>
         </div>
         
