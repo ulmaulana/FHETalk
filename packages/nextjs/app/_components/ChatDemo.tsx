@@ -220,13 +220,13 @@ function ChatDemoContent() {
   const { storage: fhevmDecryptionSignatureStorage } = useInMemoryStorage();
   
   const requests = useMemo(() => {
-    if (!chatConfig.address || allHandles.length === 0) return undefined;
-    return allHandles
-      .filter((h: string) => h !== ethers.ZeroHash)
-      .map((handle: string) => ({
-        handle,
-        contractAddress: chatConfig.address as `0x${string}`,
-      }));
+    if (!chatConfig.address || allHandles.length === 0) return [];
+    const validHandles = allHandles.filter((h: string) => h && h !== ethers.ZeroHash);
+    if (validHandles.length === 0) return [];
+    return validHandles.map((handle: string) => ({
+      handle,
+      contractAddress: chatConfig.address as `0x${string}`,
+    }));
   }, [chatConfig.address, allHandles]);
 
   const {
@@ -284,8 +284,25 @@ function ChatDemoContent() {
         
         for (let i = 0; i < Number(header.chunkCount); i++) {
           const chunk = await contract.getMessageChunk(id, i);
-          chunkHandles.push(chunk);
-          handles.push(chunk);
+          // Convert to proper hex string format for Zama SDK
+          // Contract returns bytes32 which ethers may decode as hex string or BigInt
+          let handleHex: string;
+          if (typeof chunk === 'bigint') {
+            handleHex = '0x' + chunk.toString(16).padStart(64, '0');
+          } else if (typeof chunk === 'string') {
+            // If already a string, ensure it's properly formatted
+            handleHex = chunk.startsWith('0x') ? chunk : '0x' + chunk;
+            // Pad to 64 chars (32 bytes) if needed
+            if (handleHex.length < 66) {
+              handleHex = '0x' + handleHex.slice(2).padStart(64, '0');
+            }
+          } else {
+            // Unknown type, try to convert
+            handleHex = '0x' + String(chunk).padStart(64, '0');
+          }
+          console.log(`[FHETalk] Inbox chunk ${i}:`, { raw: chunk, type: typeof chunk, hex: handleHex, len: handleHex.length });
+          chunkHandles.push(handleHex);
+          handles.push(handleHex);
         }
 
         inbox.push({
@@ -307,8 +324,20 @@ function ChatDemoContent() {
         
         for (let i = 0; i < Number(header.chunkCount); i++) {
           const chunk = await contract.getMessageChunk(id, i);
-          chunkHandles.push(chunk);
-          handles.push(chunk);
+          // Same conversion as inbox
+          let handleHex: string;
+          if (typeof chunk === 'bigint') {
+            handleHex = '0x' + chunk.toString(16).padStart(64, '0');
+          } else if (typeof chunk === 'string') {
+            handleHex = chunk.startsWith('0x') ? chunk : '0x' + chunk;
+            if (handleHex.length < 66) {
+              handleHex = '0x' + handleHex.slice(2).padStart(64, '0');
+            }
+          } else {
+            handleHex = '0x' + String(chunk).padStart(64, '0');
+          }
+          chunkHandles.push(handleHex);
+          handles.push(handleHex);
         }
 
         outbox.push({
@@ -490,19 +519,29 @@ function ChatDemoContent() {
 
   // Decrypt messages
   const handleDecrypt = async () => {
-    if (!canDecrypt || allHandles.length === 0) {
+    if (!canDecrypt || allHandles.length === 0 || requests.length === 0) {
       setStatusMessage("No messages to decrypt");
       return;
     }
 
     setIsProcessing(true);
-    setStatusMessage("Requesting decryption...");
+    setStatusMessage(`Decrypting ${requests.length} message chunks...`);
 
     try {
+      console.log("[FHETalk] Starting decryption with", requests.length, "handles");
+      console.log("[FHETalk] Decrypt requests:", requests);
       await decrypt();
       setStatusMessage("Decryption complete!");
     } catch (error) {
-      setStatusMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("[FHETalk] Decryption failed:", error);
+      
+      // Check if it's a network error to Zama relayer
+      if (errorMsg.includes('Failed to fetch') || errorMsg.includes('Zama Relayer')) {
+        setStatusMessage("Decryption service temporarily unavailable. Please try again.");
+      } else {
+        setStatusMessage(`Error: ${errorMsg}`);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -670,13 +709,13 @@ function ChatDemoContent() {
           <Image 
             src="/FHETalk_logo.png" 
             alt="FHETalk Logo" 
-            width={52} 
-            height={52} 
-            className="rounded-xl"
+            width={44} 
+            height={44} 
+            className="rounded-xl flex-shrink-0"
           />
           <div>
-            <h1 className="font-bold text-lg leading-none">FHETalk</h1>
-            <p className="text-[10px] text-white/60 hidden sm:block leading-none mt-0.5">End-to-end encrypted messaging</p>
+            <h1 className="font-bold text-lg leading-none mt-1">FHETalk</h1>
+            <p className="text-[10px] text-white/60 hidden sm:block leading-none">Messages are end-to-end encrypted with Fully Homomorphic Encryption</p>
           </div>
         </div>
         
@@ -1081,27 +1120,27 @@ function ChatDemoContent() {
                   <p className="text-sm text-center text-gray-500">Send your first encrypted message to {getContactName(selectedContact)}</p>
                 </div>
               ) : (
-                <div className="space-y-4 max-w-3xl mx-auto">
+                <div className="space-y-3 px-2 md:px-4">
                   {currentConversation.length === 0 ? (
                     // Encrypted messages
                     encryptedConversation.map((msg, idx) => {
                       const isFromMe = msg.header.from.toLowerCase() === address?.toLowerCase();
                       return (
                         <div key={idx} className={`flex ${isFromMe ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[75%] ${isFromMe ? "order-1" : "order-2"}`}>
-                            <div className={`px-4 py-3 rounded-3xl ${
+                          <div className="inline-block">
+                            <div className={`px-3 py-1 rounded-full ${
                               isFromMe
-                                ? "bg-gray-900 text-white rounded-br-lg"
-                                : "bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-lg"
+                                ? "bg-gray-900 text-white"
+                                : "bg-white text-gray-800 shadow-sm border border-gray-100"
                             }`}>
-                              <div className="flex items-center gap-2 text-sm opacity-80 italic">
+                              <div className="flex items-center gap-3.5 text-sm leading-none opacity-80 italic">
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
                                 Encrypted message
                               </div>
                             </div>
-                            <div className={`text-xs text-gray-500 mt-1.5 ${isFromMe ? "text-right" : "text-left"}`}>
+                            <div className={`text-xs text-gray-500 mt-1 px-1 ${isFromMe ? "text-right" : "text-left"}`}>
                               {formatTime(new Date(Number(msg.header.timestamp) * 1000))}
                             </div>
                           </div>
@@ -1112,18 +1151,18 @@ function ChatDemoContent() {
                     // Decrypted messages
                     currentConversation.map((msg, idx) => (
                       <div key={idx} className={`flex ${msg.isFromMe ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[75%] ${msg.isFromMe ? "order-1" : "order-2"}`}>
-                          <div className={`px-4 py-3 rounded-3xl ${
+                        <div className="inline-block">
+                          <div className={`px-3 py-1 rounded-full ${
                             msg.isFromMe
-                              ? "bg-gray-900 text-white rounded-br-lg"
-                              : "bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-lg"
+                              ? "bg-gray-900 text-white"
+                              : "bg-white text-gray-800 shadow-sm border border-gray-100"
                           }`}>
-                            <p className="break-words whitespace-pre-wrap">{msg.content}</p>
+                            <span className="text-sm leading-none">{msg.content}</span>
                           </div>
-                          <div className={`flex items-center gap-1 text-xs text-gray-500 mt-1.5 ${msg.isFromMe ? "justify-end" : "justify-start"}`}>
+                          <div className={`flex items-center gap-1 text-xs text-gray-500 mt-1 px-1 ${msg.isFromMe ? "justify-end" : "justify-start"}`}>
                             {formatTime(msg.timestamp)}
                             {msg.isFromMe && (
-                              <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4.5 h-4.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
                             )}
@@ -1138,48 +1177,44 @@ function ChatDemoContent() {
             </div>
 
             {/* Message Input */}
-            <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
-              <div className="flex items-end gap-3 max-w-3xl mx-auto">
-                <div className="flex-1 relative">
-                  <textarea
+            <div className="bg-white border-t border-gray-200 p-3 sm:p-4 flex-shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 max-w-3xl mx-auto">
+                <div className="flex-1 relative flex items-center">
+                  <input
+                    type="text"
                     placeholder="Type your message..."
                     value={messageInput}
                     onChange={e => setMessageInput(e.target.value)}
                     onKeyDown={e => {
-                      if (e.key === "Enter" && !e.shiftKey && !isProcessing) {
+                      if (e.key === "Enter" && !isProcessing) {
                         e.preventDefault();
                         sendMessage();
                       }
                     }}
-                    className="w-full px-5 py-3.5 pr-16 bg-gray-100 rounded-3xl resize-none focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all"
-                    style={{ minHeight: "52px", maxHeight: "120px" }}
-                    rows={1}
+                    className="w-full h-11 px-4 pr-14 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all text-[15px]"
                     maxLength={256}
                     disabled={isProcessing || !selectedContact}
                   />
-                  <span className="absolute right-5 bottom-4 text-xs text-gray-400">
+                  <span className="absolute right-4 text-xs text-gray-400">
                     {messageInput.length}/256
                   </span>
                 </div>
                 <button
                   onClick={sendMessage}
                   disabled={isProcessing || !isReady || !selectedContact || !messageInput.trim()}
-                  className="p-3.5 bg-amber-500 text-white rounded-2xl hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-amber-500/25"
+                  className="w-11 h-11 flex-shrink-0 flex items-center justify-center bg-amber-500 text-white rounded-full hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-amber-500/25"
                 >
                   {isProcessing ? (
-                    <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                   ) : (
-                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                     </svg>
                   )}
                 </button>
               </div>
-              <p className="text-xs text-gray-400 text-center mt-2">
-                Messages are end-to-end encrypted with Fully Homomorphic Encryption
-              </p>
             </div>
           </div>
         </div>
