@@ -695,97 +695,83 @@ function ChatDemoContent() {
     <div className="h-screen w-screen bg-white overflow-hidden">
       {/* Main App Container - Full Screen */}
       <div className="w-full h-full flex flex-col">
-        {/* App Header */}
-        <div className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between shadow-lg flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-            className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <Image 
-            src="/FHETalk_logo.png" 
-            alt="FHETalk Logo" 
-            width={44} 
-            height={44} 
-            className="rounded-xl flex-shrink-0"
-          />
-          <div>
-            <h1 className="font-bold text-lg leading-none mt-1">FHETalk</h1>
-            <p className="text-[10px] text-white/60 hidden sm:block leading-none">Messages are end-to-end encrypted with Fully Homomorphic Encryption</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {/* FHEVM Status Badge */}
-          <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-            isReady ? "bg-green-500/20 text-green-300" : "bg-amber-500/20 text-amber-300"
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${isReady ? "bg-green-400 animate-pulse" : "bg-amber-400"}`}></span>
-            FHEVM: {isReady ? "Ready" : status}
+        {/* App Header - Minimalist */}
+        <div className="bg-gray-900 text-white px-3 sm:px-4 py-2 flex items-center justify-between flex-shrink-0 border-b border-gray-800">
+          {/* Left: Logo & Brand */}
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+              className="lg:hidden p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <Image 
+              src="/FHETalk_logo.png" 
+              alt="FHETalk" 
+              width={28} 
+              height={28} 
+              className="rounded-lg"
+            />
+            <div className="hidden sm:block">
+              <span className="font-semibold text-sm">FHETalk</span>
+              <span className="text-white/50 text-xs ml-1">- Messages are end-to-end encrypted with Fully Homomorphic Encryption</span>
+            </div>
+            <span className="font-semibold text-sm sm:hidden">FHETalk</span>
           </div>
           
-          {/* Action Buttons */}
-          <button
-            onClick={loadMessages}
-            disabled={isProcessing || !isReady}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
-            title="Refresh messages"
-          >
-            <svg className={`w-5 h-5 ${isProcessing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-          <button
-            onClick={handleDecrypt}
-            disabled={isProcessing || !canDecrypt || allHandles.length === 0}
-            className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/10 rounded-xl transition-colors disabled:opacity-50"
-            title="Decrypt messages"
-          >
-            <svg className={`w-5 h-5 ${isDecrypting ? "animate-pulse" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-            </svg>
-            <span className="text-sm font-medium hidden md:inline">Decrypt Message</span>
-          </button>
-          
-          {/* Wallet Connect */}
-          <RainbowKitCustomConnectButton />
-        </div>
-      </div>
-
-        {/* Status Message - Toast Style */}
-        {statusMessage && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl shadow-lg border ${
-              statusMessage.toLowerCase().includes('error') || statusMessage.toLowerCase().includes('invalid') || statusMessage.toLowerCase().includes('failed')
-                ? 'bg-red-50 border-red-200 text-red-800'
-                : statusMessage.toLowerCase().includes('success') || statusMessage.toLowerCase().includes('sent')
-                ? 'bg-green-50 border-green-200 text-green-800'
-                : 'bg-gray-900 border-gray-700 text-white'
+          {/* Right: Actions */}
+          <div className="flex items-center gap-1.5">
+            {/* FHEVM Status */}
+            <div className={`hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs ${
+              isReady ? "bg-green-500/20 text-green-300" : "bg-amber-500/20 text-amber-300"
             }`}>
-              {/* Icon */}
-              {statusMessage.toLowerCase().includes('error') || statusMessage.toLowerCase().includes('invalid') || statusMessage.toLowerCase().includes('failed') ? (
-                <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : statusMessage.toLowerCase().includes('success') || statusMessage.toLowerCase().includes('sent') ? (
-                <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              )}
-              <span className="text-sm font-medium">{statusMessage}</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${isReady ? "bg-green-400" : "bg-amber-400 animate-pulse"}`} />
+              FHEVM: {isReady ? "Ready" : status}
+            </div>
+            <button
+              onClick={loadMessages}
+              disabled={isProcessing || !isReady}
+              className="p-1.5 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-40"
+              title="Refresh"
+            >
+              <svg className={`w-4 h-4 ${isProcessing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <button
+              onClick={handleDecrypt}
+              disabled={isProcessing || !canDecrypt || allHandles.length === 0}
+              className="flex items-center gap-1.5 px-2 py-1 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-40"
+              title="Decrypt messages"
+            >
+              <svg className={`w-4 h-4 ${isDecrypting ? "animate-pulse" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+              </svg>
+              <span className="text-xs hidden md:inline">Decrypt Message</span>
+            </button>
+            <div className="w-px h-4 bg-white/20 mx-1 hidden sm:block" />
+            <RainbowKitCustomConnectButton />
+          </div>
+        </div>
+
+        {/* Status Message - Toast */}
+        {statusMessage && (
+          <div className="absolute top-12 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg text-xs ${
+              statusMessage.toLowerCase().includes('error') || statusMessage.toLowerCase().includes('invalid') || statusMessage.toLowerCase().includes('failed')
+                ? 'bg-red-500 text-white'
+                : statusMessage.toLowerCase().includes('success') || statusMessage.toLowerCase().includes('sent')
+                ? 'bg-green-500 text-white'
+                : 'bg-gray-800 text-white'
+            }`}>
+              <span className="font-medium">{statusMessage}</span>
               <button 
                 onClick={() => setStatusMessage("")}
-                className="p-1 hover:bg-black/10 rounded-lg transition-colors ml-2"
+                className="p-0.5 hover:bg-white/20 rounded transition-colors ml-1"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
