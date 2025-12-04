@@ -1,10 +1,10 @@
 # FHETalk
 
-**Private messaging powered by Fully Homomorphic Encryption**
+**Private messaging powered by Zama Fully Homomorphic Encryption**
 
 > **Live Demo:** [https://fhetalk.vercel.app](https://fhetalk.vercel.app)
 
-FHETalk is an encrypted chat application that stores messages on the blockchain using Zama's FHEVM. Messages can only be read by the sender and recipient - even validator nodes cannot read the message contents.
+FHETalk is an encrypted chat application that stores messages on the blockchain using Zama FHEVM. Messages can only be read by the sender and recipient.
 
 ## Features
 
