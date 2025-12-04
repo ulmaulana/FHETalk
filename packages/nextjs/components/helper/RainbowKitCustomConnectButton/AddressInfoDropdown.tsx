@@ -34,10 +34,10 @@ export const AddressInfoDropdown = ({ address, ensAvatar, displayName }: Address
   return (
     <>
       <details ref={dropdownRef} className="dropdown dropdown-end leading-3">
-        <summary className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl cursor-pointer transition-all">
-          <BlockieAvatar address={checkSumAddress} size={28} ensImage={ensAvatar} />
-          <span className="text-sm font-medium text-gray-900">{displayName}</span>
-          <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+        <summary className="flex items-center gap-1.5 cursor-pointer transition-all list-none">
+          <BlockieAvatar address={checkSumAddress} size={20} ensImage={ensAvatar} />
+          <span className="text-xs font-medium text-white/80">{displayName}</span>
+          <ChevronDownIcon className="h-3 w-3 text-white/50" />
         </summary>
         <ul className="dropdown-content z-50 mt-2 p-2 bg-white rounded-2xl shadow-xl border border-gray-100 min-w-[200px]">
           <NetworkOptions hidden={!selectingNetwork} />
