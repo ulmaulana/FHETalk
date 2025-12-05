@@ -29,7 +29,7 @@ export function Header({
   canDecrypt,
   allHandlesLength,
   myProfile,
-  showMobileSidebar,
+  // showMobileSidebar - kept in props for future use
   onToggleSidebar,
   onRefresh,
   onDecrypt,

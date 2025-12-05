@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { Group, Contact } from "../types";
-import { shortenAddress, generateAvatarColor } from "../utils";
+import { generateAvatarColor } from "../utils";
 
 interface ChatHeaderProps {
   chatMode: "dm" | "group";

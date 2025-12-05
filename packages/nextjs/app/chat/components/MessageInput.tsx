@@ -19,7 +19,7 @@ export function MessageInput({
   isProcessing,
   isReady,
   canSend,
-  chatMode,
+  // chatMode - kept in props for future use
   onChange,
   onSend,
 }: MessageInputProps) {
