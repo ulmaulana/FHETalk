@@ -2,7 +2,7 @@
 // Chat Module Index - Main export
 // ============================================================================
 
-export { ChatDemo } from "./ChatDemo";
+export { Chat } from "./Chat";
 
 // Re-export types for external usage
 export * from "./types";
