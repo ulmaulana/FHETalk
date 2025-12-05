@@ -1,5 +1,5 @@
 // ============================================================================
-// Utility Functions - Extracted from ChatDemo.tsx
+// Utility Functions - Chat Module
 // ============================================================================
 
 import { Contact } from "./types";
