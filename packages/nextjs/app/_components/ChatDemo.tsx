@@ -9,20 +9,34 @@ import { ethers } from "ethers";
 import { getContractConfig } from "~~/contracts";
 
 // ============================================================================
+// Constants
+// ============================================================================
+
+const MAX_CHUNKS = 256; // 256 chunks * 8 bytes = 2048 bytes ~ 2000 chars
+const MAX_CHARS = 2000;
+
+// ============================================================================
 // Types
 // ============================================================================
+
+enum AttachmentType {
+  None = 0,
+  Image = 1,
+}
 
 interface MessageHeader {
   from: string;
   to: string;
   timestamp: bigint;
   chunkCount: number;
+  attachmentType: AttachmentType;
 }
 
 interface EncryptedMessage {
   id: bigint;
   header: MessageHeader;
   chunkHandles: string[];
+  attachmentCid?: string;
 }
 
 interface DecryptedMessage {
@@ -32,12 +46,22 @@ interface DecryptedMessage {
   timestamp: Date;
   content: string;
   isFromMe: boolean;
+  attachmentType: AttachmentType;
+  attachmentCid?: string;
+}
+
+interface UserProfile {
+  displayName: string;
+  avatarCid: string;
+  updatedAt: bigint;
+  exists: boolean;
 }
 
 interface Contact {
   address: string;
   name: string;
   addedAt: number;
+  isBlocked?: boolean;
 }
 
 interface RecentChat {
@@ -47,6 +71,27 @@ interface RecentChat {
   lastMessageTime: Date;
   isEncrypted: boolean;
   unreadCount?: number;
+}
+
+interface Group {
+  groupId: bigint;
+  name: string;
+  metadataURI: string;
+  owner: string;
+  createdAt: bigint;
+  isClosed: boolean;
+  exists: boolean;
+}
+
+interface GroupMessage {
+  id: bigint;
+  groupId: bigint;
+  from: string;
+  timestamp: Date;
+  content: string;
+  isFromMe: boolean;
+  attachmentType: AttachmentType;
+  attachmentCid?: string;
 }
 
 // ============================================================================
@@ -193,7 +238,7 @@ function ChatDemoContent() {
   const [showNewChat, setShowNewChat] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showMobileSidebar, setShowMobileSidebar] = useState(true);
-  const [activeTab, setActiveTab] = useState<"chats" | "contacts">("chats");
+  const [activeTab, setActiveTab] = useState<"chats" | "contacts" | "groups">("chats");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Messages state
@@ -201,6 +246,27 @@ function ChatDemoContent() {
   const [outboxMessages, setOutboxMessages] = useState<EncryptedMessage[]>([]);
   const [decryptedMessages, setDecryptedMessages] = useState<DecryptedMessage[]>([]);
   const [allHandles, setAllHandles] = useState<string[]>([]);
+
+  // Profile & Blocklist state
+  const [myProfile, setMyProfile] = useState<UserProfile | null>(null);
+  const [profileCache, setProfileCache] = useState<Record<string, UserProfile>>({});
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileAvatar, setProfileAvatar] = useState("");
+
+  // Group state
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [groupMessages, setGroupMessages] = useState<GroupMessage[]>([]);
+  const [groupMembers, setGroupMembers] = useState<string[]>([]);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showJoinGroup, setShowJoinGroup] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [joinGroupId, setJoinGroupId] = useState("");
+  const [joinRoomCode, setJoinRoomCode] = useState("");
+  const [newMemberAddress, setNewMemberAddress] = useState("");
+  const [chatMode, setChatMode] = useState<"dm" | "group">("dm");
 
   // Auto-scroll to bottom when new messages
   const scrollToBottom = useCallback(() => {
@@ -257,6 +323,356 @@ function ChatDemoContent() {
     return undefined;
   }, [chatConfig, ethersSigner, isConnected]);
 
+  // Load my profile
+  const loadMyProfile = useCallback(async () => {
+    if (!address) return;
+    try {
+      const contract = getContract("read");
+      if (!contract) return;
+      const profile = await contract.getProfile(address);
+      if (profile.exists) {
+        setMyProfile({
+          displayName: profile.displayName,
+          avatarCid: profile.avatarCid,
+          updatedAt: profile.updatedAt,
+          exists: true,
+        });
+        setProfileName(profile.displayName);
+        setProfileAvatar(profile.avatarCid);
+      }
+    } catch (error) {
+      console.error("Failed to load profile:", error);
+    }
+  }, [address, getContract]);
+
+  // Save profile
+  const saveProfile = async () => {
+    if (!profileName.trim()) {
+      setStatusMessage("Please enter a display name");
+      return;
+    }
+    setIsProcessing(true);
+    setStatusMessage("Saving profile...");
+    try {
+      const contract = getContract("write");
+      if (!contract) throw new Error("Contract not available");
+      const tx = await contract.setProfile(profileName.trim(), profileAvatar.trim());
+      await tx.wait();
+      setStatusMessage("Profile saved!");
+      setShowProfileModal(false);
+      await loadMyProfile();
+    } catch (error) {
+      setStatusMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Block/unblock user
+  const toggleBlockUser = async (targetAddress: string) => {
+    if (!targetAddress) return;
+    const contact = contacts.find(c => c.address.toLowerCase() === targetAddress.toLowerCase());
+    const currentlyBlocked = contact?.isBlocked || false;
+    
+    setIsProcessing(true);
+    setStatusMessage(currentlyBlocked ? "Unblocking user..." : "Blocking user...");
+    try {
+      const contract = getContract("write");
+      if (!contract) throw new Error("Contract not available");
+      const tx = await contract.setBlockStatus(targetAddress, !currentlyBlocked);
+      await tx.wait();
+      
+      // Update local contacts
+      const updated = contacts.map(c => 
+        c.address.toLowerCase() === targetAddress.toLowerCase() 
+          ? { ...c, isBlocked: !currentlyBlocked }
+          : c
+      );
+      setContacts(updated);
+      saveContacts(updated);
+      setStatusMessage(currentlyBlocked ? "User unblocked" : "User blocked");
+    } catch (error) {
+      setStatusMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Load user's groups
+  const loadGroups = useCallback(async () => {
+    if (!address) return;
+    try {
+      const contract = getContract("read");
+      if (!contract) return;
+      
+      // Get total groups count and check membership for each
+      const nextGroupId = await contract.nextGroupId();
+      const loadedGroups: Group[] = [];
+      
+      // Check each group if user is member
+      for (let i = 0; i < Number(nextGroupId); i++) {
+        try {
+          const isMember = await contract.isGroupMember(BigInt(i), address);
+          if (isMember) {
+            const group = await contract.getGroup(BigInt(i));
+            if (group.exists) {
+              loadedGroups.push({
+                groupId: BigInt(i),
+                name: group.name,
+                metadataURI: group.metadataURI,
+                owner: group.owner,
+                createdAt: group.createdAt,
+                isClosed: group.isClosed,
+                exists: true,
+              });
+            }
+          }
+        } catch {
+          // Skip if group doesn't exist
+        }
+      }
+      
+      setGroups(loadedGroups);
+    } catch (error) {
+      console.error("Failed to load groups:", error);
+    }
+  }, [address, getContract]);
+
+  // Create new group
+  const createGroup = async () => {
+    if (!newGroupName.trim()) {
+      setStatusMessage("Please enter a group name");
+      return;
+    }
+    setIsProcessing(true);
+    setStatusMessage("Creating group...");
+    try {
+      const contract = getContract("write");
+      if (!contract) throw new Error("Contract not available");
+      
+      // Generate random room code
+      const roomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const roomCodeHash = ethers.keccak256(ethers.toUtf8Bytes(roomCode));
+      
+      const tx = await contract.createGroup(newGroupName.trim(), "", false, roomCodeHash);
+      const receipt = await tx.wait();
+      
+      // Get group ID from event
+      const event = receipt.logs.find((log: any) => {
+        try {
+          const parsed = contract.interface.parseLog(log);
+          return parsed?.name === "GroupCreated";
+        } catch { return false; }
+      });
+      
+      if (event) {
+        const parsed = contract.interface.parseLog(event);
+        setStatusMessage(`Group created! Room code: ${roomCode}`);
+      } else {
+        setStatusMessage("Group created!");
+      }
+      
+      setShowCreateGroup(false);
+      setNewGroupName("");
+      await loadGroups();
+    } catch (error) {
+      setStatusMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Join group with room code
+  const joinGroup = async () => {
+    if (!joinGroupId || !joinRoomCode) {
+      setStatusMessage("Please enter group ID and room code");
+      return;
+    }
+    setIsProcessing(true);
+    setStatusMessage("Joining group...");
+    try {
+      const contract = getContract("write");
+      if (!contract) throw new Error("Contract not available");
+      
+      const tx = await contract.joinGroupWithCode(BigInt(joinGroupId), joinRoomCode);
+      await tx.wait();
+      
+      setStatusMessage("Joined group!");
+      setShowJoinGroup(false);
+      setJoinGroupId("");
+      setJoinRoomCode("");
+      await loadGroups();
+    } catch (error) {
+      setStatusMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Load group members
+  const loadGroupMembers = async (groupId: bigint) => {
+    try {
+      const contract = getContract("read");
+      if (!contract) return;
+      const members = await contract.getGroupMembers(groupId);
+      setGroupMembers(members);
+    } catch (error) {
+      console.error("Failed to load members:", error);
+    }
+  };
+
+  // Load group messages
+  const loadGroupMessages = async (groupId: bigint) => {
+    if (!address) return;
+    try {
+      const contract = getContract("read");
+      if (!contract) return;
+      
+      const messageIds = await contract.getGroupMessageIds(groupId);
+      console.log(`[FHETalk] Group ${groupId} has ${messageIds.length} messages`);
+      
+      const handles: string[] = [];
+      const messages: GroupMessage[] = [];
+      
+      for (const id of messageIds) {
+        const header = await contract.getGroupMessageHeader(id);
+        
+        // Get chunk handles for decryption
+        for (let i = 0; i < Number(header.chunkCount); i++) {
+          const chunk = await contract.getGroupMessageChunk(id, i);
+          let handleHex: string;
+          if (typeof chunk === 'bigint') {
+            handleHex = '0x' + chunk.toString(16).padStart(64, '0');
+          } else if (typeof chunk === 'string') {
+            handleHex = chunk.startsWith('0x') ? chunk : '0x' + chunk;
+            if (handleHex.length < 66) {
+              handleHex = '0x' + handleHex.slice(2).padStart(64, '0');
+            }
+          } else {
+            handleHex = '0x' + String(chunk).padStart(64, '0');
+          }
+          handles.push(handleHex);
+        }
+        
+        messages.push({
+          id,
+          groupId,
+          from: header.from,
+          timestamp: new Date(Number(header.timestamp) * 1000),
+          content: "[Encrypted]",
+          isFromMe: header.from.toLowerCase() === address.toLowerCase(),
+          attachmentType: AttachmentType.None,
+        });
+      }
+      
+      setGroupMessages(messages);
+      // Add handles for decryption
+      if (handles.length > 0) {
+        setAllHandles(prev => [...new Set([...prev, ...handles])]);
+      }
+      setStatusMessage(`Loaded ${messages.length} group messages`);
+    } catch (error) {
+      console.error("Failed to load group messages:", error);
+    }
+  };
+
+  // Select a group
+  const selectGroup = async (group: Group) => {
+    setSelectedGroup(group);
+    setSelectedContact(null);
+    setChatMode("group");
+    setShowMobileSidebar(false);
+    await loadGroupMembers(group.groupId);
+    await loadGroupMessages(group.groupId);
+  };
+
+  // Add member to group
+  const addMemberToGroup = async () => {
+    if (!selectedGroup || !newMemberAddress) {
+      setStatusMessage("Please enter a wallet address");
+      return;
+    }
+    if (!ethers.isAddress(newMemberAddress)) {
+      setStatusMessage("Invalid wallet address");
+      return;
+    }
+    setIsProcessing(true);
+    setStatusMessage("Adding member...");
+    try {
+      const contract = getContract("write");
+      if (!contract) throw new Error("Contract not available");
+      
+      const tx = await contract.addMembers(selectedGroup.groupId, [newMemberAddress]);
+      await tx.wait();
+      
+      setStatusMessage("Member added!");
+      setShowAddMember(false);
+      setNewMemberAddress("");
+      await loadGroupMembers(selectedGroup.groupId);
+    } catch (error) {
+      setStatusMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Send group message
+  const sendGroupMessage = async () => {
+    if (!selectedGroup || !messageInput.trim()) return;
+    if (!instance || !address) {
+      setStatusMessage("FHEVM not ready");
+      return;
+    }
+
+    setIsProcessing(true);
+    setStatusMessage("Encrypting group message...");
+
+    try {
+      const chunks = encodeMessageToUint64Chunks(messageInput);
+      const contractAddr = ethers.getAddress(chatConfig.address);
+      const userAddr = ethers.getAddress(address);
+      
+      const buffer = instance.createEncryptedInput(contractAddr, userAddr);
+      for (const chunk of chunks) {
+        buffer.add64(chunk);
+      }
+
+      const ciphertexts = await buffer.encrypt();
+      const toHex = (data: Uint8Array) => "0x" + Array.from(data).map(b => b.toString(16).padStart(2, "0")).join("");
+      const toBytes32 = (data: Uint8Array): string => {
+        const padded = new Uint8Array(32);
+        padded.set(data, 0);
+        return toHex(padded);
+      };
+
+      const handles = ciphertexts.handles.map((h: Uint8Array) => toBytes32(h));
+      const inputProof = toHex(ciphertexts.inputProof);
+
+      const contract = getContract("write");
+      if (!contract) throw new Error("Contract not available");
+
+      const tx = await contract.sendGroupMessage(selectedGroup.groupId, handles, inputProof);
+      await tx.wait();
+
+      setStatusMessage("Group message sent!");
+      setMessageInput("");
+      // Reload group messages
+      await loadGroupMessages(selectedGroup.groupId);
+    } catch (error) {
+      setStatusMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Load profile and groups on mount
+  useEffect(() => {
+    if (isReady && address) {
+      loadMyProfile();
+      loadGroups();
+    }
+  }, [isReady, address]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Load messages
   const loadMessages = useCallback(async () => {
     if (!chatConfig.address || !address || !isReady) return;
@@ -312,6 +728,7 @@ function ChatDemoContent() {
             to: header.to,
             timestamp: header.timestamp,
             chunkCount: Number(header.chunkCount),
+            attachmentType: Number(header.attachmentType || 0) as AttachmentType,
           },
           chunkHandles,
         });
@@ -347,6 +764,7 @@ function ChatDemoContent() {
             to: header.to,
             timestamp: header.timestamp,
             chunkCount: Number(header.chunkCount),
+            attachmentType: Number(header.attachmentType || 0) as AttachmentType,
           },
           chunkHandles,
         });
@@ -392,6 +810,8 @@ function ChatDemoContent() {
         timestamp: new Date(Number(msg.header.timestamp) * 1000),
         content,
         isFromMe: msg.header.from.toLowerCase() === myAddress,
+        attachmentType: msg.header.attachmentType,
+        attachmentCid: msg.attachmentCid,
       });
     }
 
@@ -419,8 +839,8 @@ function ChatDemoContent() {
       return;
     }
 
-    if (messageInput.length > 256) {
-      setStatusMessage("Message too long (max 256 characters)");
+    if (messageInput.length > MAX_CHARS) {
+      setStatusMessage(`Message too long (max ${MAX_CHARS} characters)`);
       return;
     }
 
@@ -671,6 +1091,8 @@ function ChatDemoContent() {
   // Handle selecting a chat
   const handleSelectChat = (addr: string) => {
     setSelectedContact(addr);
+    setSelectedGroup(null);
+    setChatMode("dm");
     setShowMobileSidebar(false);
     setShowNewChat(false);
   };
@@ -751,6 +1173,17 @@ function ChatDemoContent() {
               </svg>
               <span className="text-xs hidden md:inline">Decrypt Message</span>
             </button>
+            {/* Profile Button */}
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className="flex items-center gap-1.5 px-2 py-1 hover:bg-white/10 rounded-lg transition-colors"
+              title="Edit Profile"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <span className="text-xs hidden md:inline">{myProfile?.displayName || "Profile"}</span>
+            </button>
             <div className="w-px h-4 bg-white/20 mx-1 hidden sm:block" />
             <RainbowKitCustomConnectButton />
           </div>
@@ -815,9 +1248,9 @@ function ChatDemoContent() {
                   )}
                 </button>
                 <button
-                  onClick={() => setActiveTab("contacts")}
+                  onClick={() => setActiveTab("groups")}
                   className={`flex-1 py-3 text-sm font-semibold transition-all relative ${
-                    activeTab === "contacts" 
+                    activeTab === "groups" 
                       ? "text-amber-600" 
                       : "text-gray-500 hover:text-gray-700"
                   }`}
@@ -826,10 +1259,27 @@ function ChatDemoContent() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    Contacts
-                    {contacts.length > 0 && (
-                      <span className="bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">{contacts.length}</span>
+                    Groups
+                    {groups.length > 0 && (
+                      <span className="bg-gray-200 text-gray-600 text-xs px-1.5 py-0.5 rounded-full">{groups.length}</span>
                     )}
+                  </div>
+                  {activeTab === "groups" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab("contacts")}
+                  className={`flex-1 py-3 text-sm font-semibold transition-all relative ${
+                    activeTab === "contacts" 
+                      ? "text-amber-600" 
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
                   </div>
                   {activeTab === "contacts" && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-500" />
@@ -972,19 +1422,80 @@ function ChatDemoContent() {
                   )}
                 </>
               )}
+
+              {/* Groups Tab */}
+              {activeTab === "groups" && (
+                <>
+                  {groups.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8">
+                      <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <p className="text-center font-medium">No groups yet</p>
+                      <p className="text-sm text-center mt-1">Create or join a group</p>
+                    </div>
+                  ) : (
+                    groups.map(group => (
+                      <button
+                        key={group.groupId.toString()}
+                        onClick={() => selectGroup(group)}
+                        className={`w-full p-4 flex items-center gap-3 hover:bg-gray-50 transition-all border-b border-gray-100 ${
+                          selectedGroup?.groupId === group.groupId 
+                            ? "bg-amber-50 border-l-4 border-l-amber-500" 
+                            : "border-l-4 border-l-transparent"
+                        }`}
+                      >
+                        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-semibold text-lg`}>
+                          {group.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <div className="font-semibold text-gray-900 truncate">{group.name}</div>
+                          <div className="text-xs text-gray-500">ID: {group.groupId.toString()}</div>
+                        </div>
+                        {group.owner.toLowerCase() === address?.toLowerCase() && (
+                          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Owner</span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </>
+              )}
             </div>
 
-            {/* New Chat Button */}
-            <div className="p-4 border-t border-gray-100 flex-shrink-0">
-              <button
-                onClick={() => setShowNewChat(true)}
-                className="w-full py-3.5 bg-amber-500 text-white rounded-2xl font-medium hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                New Chat
-              </button>
+            {/* Action Buttons */}
+            <div className="p-4 border-t border-gray-100 flex-shrink-0 space-y-2">
+              {activeTab === "groups" ? (
+                <>
+                  <button
+                    onClick={() => setShowCreateGroup(true)}
+                    className="w-full py-3 bg-amber-500 text-white rounded-2xl font-medium hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Create Group
+                  </button>
+                  <button
+                    onClick={() => setShowJoinGroup(true)}
+                    className="w-full py-3 bg-gray-100 text-gray-700 rounded-2xl font-medium hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    Join Group
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowNewChat(true)}
+                  className="w-full py-3.5 bg-amber-500 text-white rounded-2xl font-medium hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  New Chat
+                </button>
+              )}
             </div>
           </div>
 
@@ -1042,8 +1553,206 @@ function ChatDemoContent() {
               </div>
             )}
 
+            {/* Profile Modal */}
+            {showProfileModal && (
+              <div className="absolute inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+                  <div className="bg-gray-900 text-white p-5 flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">Edit Profile</h3>
+                    <button onClick={() => setShowProfileModal(false)} className="p-1.5 hover:bg-white/20 rounded-xl transition-colors">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="p-6">
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Display Name</label>
+                      <input
+                        type="text"
+                        placeholder="Your name"
+                        value={profileName}
+                        onChange={e => setProfileName(e.target.value)}
+                        className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                      />
+                    </div>
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Avatar IPFS CID (optional)</label>
+                      <input
+                        type="text"
+                        placeholder="Qm..."
+                        value={profileAvatar}
+                        onChange={e => setProfileAvatar(e.target.value)}
+                        className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                      />
+                    </div>
+                    <button
+                      onClick={saveProfile}
+                      disabled={isProcessing}
+                      className="w-full py-3.5 bg-amber-500 text-white rounded-2xl font-medium hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/25 disabled:opacity-50"
+                    >
+                      {isProcessing ? "Saving..." : "Save Profile"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Create Group Modal */}
+            {showCreateGroup && (
+              <div className="absolute inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+                  <div className="bg-gray-900 text-white p-5 flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">Create Group</h3>
+                    <button onClick={() => setShowCreateGroup(false)} className="p-1.5 hover:bg-white/20 rounded-xl transition-colors">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="p-6">
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Group Name</label>
+                      <input
+                        type="text"
+                        placeholder="My Group"
+                        value={newGroupName}
+                        onChange={e => setNewGroupName(e.target.value)}
+                        className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                      />
+                    </div>
+                    <button
+                      onClick={createGroup}
+                      disabled={isProcessing || !newGroupName.trim()}
+                      className="w-full py-3.5 bg-amber-500 text-white rounded-2xl font-medium hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/25 disabled:opacity-50"
+                    >
+                      {isProcessing ? "Creating..." : "Create Group"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Join Group Modal */}
+            {showJoinGroup && (
+              <div className="absolute inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+                  <div className="bg-gray-900 text-white p-5 flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">Join Group</h3>
+                    <button onClick={() => setShowJoinGroup(false)} className="p-1.5 hover:bg-white/20 rounded-xl transition-colors">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="p-6">
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Group ID</label>
+                      <input
+                        type="text"
+                        placeholder="0"
+                        value={joinGroupId}
+                        onChange={e => setJoinGroupId(e.target.value)}
+                        className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                      />
+                    </div>
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Room Code</label>
+                      <input
+                        type="text"
+                        placeholder="ABC12345"
+                        value={joinRoomCode}
+                        onChange={e => setJoinRoomCode(e.target.value)}
+                        className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                      />
+                    </div>
+                    <button
+                      onClick={joinGroup}
+                      disabled={isProcessing || !joinGroupId || !joinRoomCode}
+                      className="w-full py-3.5 bg-amber-500 text-white rounded-2xl font-medium hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/25 disabled:opacity-50"
+                    >
+                      {isProcessing ? "Joining..." : "Join Group"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Add Member Modal */}
+            {showAddMember && selectedGroup && (
+              <div className="absolute inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+                  <div className="bg-gray-900 text-white p-5 flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">Add Member</h3>
+                    <button onClick={() => setShowAddMember(false)} className="p-1.5 hover:bg-white/20 rounded-xl transition-colors">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="p-6">
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Wallet Address</label>
+                      <input
+                        type="text"
+                        placeholder="0x..."
+                        value={newMemberAddress}
+                        onChange={e => setNewMemberAddress(e.target.value)}
+                        className="w-full px-4 py-3.5 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all"
+                      />
+                    </div>
+                    <div className="mb-6 p-3 bg-gray-50 rounded-xl">
+                      <p className="text-sm text-gray-600">Current members: {groupMembers.length}</p>
+                      <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
+                        {groupMembers.map((m, i) => (
+                          <p key={i} className="text-xs text-gray-500 truncate">{m}</p>
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      onClick={addMemberToGroup}
+                      disabled={isProcessing || !newMemberAddress}
+                      className="w-full py-3.5 bg-amber-500 text-white rounded-2xl font-medium hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/25 disabled:opacity-50"
+                    >
+                      {isProcessing ? "Adding..." : "Add Member"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Chat Header */}
-            {selectedContact ? (
+            {chatMode === "group" && selectedGroup ? (
+              <div className="bg-white border-b border-gray-200 p-4 flex items-center gap-4 flex-shrink-0">
+                <button 
+                  onClick={() => { setSelectedGroup(null); setChatMode("dm"); setShowMobileSidebar(true); }}
+                  className="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-semibold">
+                  {selectedGroup.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900 truncate">{selectedGroup.name}</h3>
+                  <p className="text-xs text-gray-500">{groupMembers.length} members</p>
+                </div>
+                {/* Add Member Button - Only for owner/admin */}
+                {selectedGroup.owner.toLowerCase() === address?.toLowerCase() && (
+                  <button
+                    onClick={() => setShowAddMember(true)}
+                    className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
+                    title="Add member"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ) : selectedContact ? (
               <div className="bg-white border-b border-gray-200 p-4 flex items-center gap-4 flex-shrink-0">
                 <button 
                   onClick={() => setShowMobileSidebar(true)}
@@ -1060,6 +1769,21 @@ function ChatDemoContent() {
                   <h3 className="font-semibold text-gray-900 truncate">{getContactName(selectedContact)}</h3>
                   <p className="text-xs text-gray-500 truncate">{selectedContact}</p>
                 </div>
+                {/* Block Button */}
+                <button
+                  onClick={() => toggleBlockUser(selectedContact)}
+                  disabled={isProcessing}
+                  className={`p-2 rounded-xl transition-colors ${
+                    contacts.find(c => c.address.toLowerCase() === selectedContact.toLowerCase())?.isBlocked
+                      ? "bg-red-100 text-red-600 hover:bg-red-200"
+                      : "hover:bg-gray-100 text-gray-500"
+                  }`}
+                  title={contacts.find(c => c.address.toLowerCase() === selectedContact.toLowerCase())?.isBlocked ? "Unblock user" : "Block user"}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                </button>
               </div>
             ) : (
               <div className="bg-white border-b border-gray-200 p-4 flex items-center gap-4 flex-shrink-0">
@@ -1085,7 +1809,43 @@ function ChatDemoContent() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
-              {!selectedContact ? (
+              {/* Group Messages */}
+              {chatMode === "group" && selectedGroup ? (
+                groupMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                    <div className="w-24 h-24 rounded-3xl bg-amber-100 flex items-center justify-center mb-6 shadow-lg">
+                      <svg className="w-12 h-12 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-xl font-semibold text-gray-600 mb-2">Group Chat</p>
+                    <p className="text-sm text-center text-gray-500">Send the first message to {selectedGroup.name}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 px-2 md:px-4">
+                    {groupMessages.map((msg, idx) => (
+                      <div key={idx} className={`flex ${msg.isFromMe ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[75%] ${msg.isFromMe ? "order-1" : ""}`}>
+                          {!msg.isFromMe && (
+                            <p className="text-xs text-gray-500 mb-1 ml-1">{shortenAddress(msg.from)}</p>
+                          )}
+                          <div className={`px-4 py-2.5 rounded-2xl ${
+                            msg.isFromMe 
+                              ? "bg-amber-500 text-white rounded-tr-sm" 
+                              : "bg-white text-gray-800 rounded-tl-sm shadow-sm"
+                          }`}>
+                            <p className="text-[15px] leading-relaxed">{msg.content}</p>
+                          </div>
+                          <p className={`text-xs text-gray-400 mt-1 ${msg.isFromMe ? "text-right mr-1" : "ml-1"}`}>
+                            {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                )
+              ) : !selectedContact ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400">
                   <div className="w-28 h-28 rounded-3xl bg-amber-100 flex items-center justify-center mb-6 shadow-lg">
                     <svg className="w-14 h-14 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1174,20 +1934,20 @@ function ChatDemoContent() {
                     onKeyDown={e => {
                       if (e.key === "Enter" && !isProcessing) {
                         e.preventDefault();
-                        sendMessage();
+                        chatMode === "group" ? sendGroupMessage() : sendMessage();
                       }
                     }}
                     className="w-full h-11 px-4 pr-14 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all text-[15px]"
-                    maxLength={256}
-                    disabled={isProcessing || !selectedContact}
+                    maxLength={MAX_CHARS}
+                    disabled={isProcessing || (!selectedContact && !selectedGroup)}
                   />
                   <span className="absolute right-4 text-xs text-gray-400">
-                    {messageInput.length}/256
+                    {messageInput.length}/{MAX_CHARS}
                   </span>
                 </div>
                 <button
-                  onClick={sendMessage}
-                  disabled={isProcessing || !isReady || !selectedContact || !messageInput.trim()}
+                  onClick={() => chatMode === "group" ? sendGroupMessage() : sendMessage()}
+                  disabled={isProcessing || !isReady || (!selectedContact && !selectedGroup) || !messageInput.trim()}
                   className="w-11 h-11 flex-shrink-0 flex items-center justify-center bg-amber-500 text-white rounded-full hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-amber-500/25"
                 >
                   {isProcessing ? (
