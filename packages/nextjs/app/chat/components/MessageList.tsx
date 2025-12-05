@@ -2,7 +2,7 @@
 // MessageList Component - Display messages (encrypted or decrypted)
 // ============================================================================
 
-import { RefObject } from "react";
+import { RefObject, useEffect, useState } from "react";
 import { DecryptedMessage, EncryptedMessage, GroupMessage, Group } from "../types";
 import { shortenAddress, formatTime } from "../utils";
 
@@ -16,6 +16,7 @@ interface MessageListProps {
   address?: string;
   messagesEndRef: RefObject<HTMLDivElement>;
   getContactName: (address: string) => string;
+  isLoading?: boolean;
 }
 
 const CHAT_BG_PATTERN = "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")";
@@ -30,10 +31,48 @@ export function MessageList({
   address,
   messagesEndRef,
   getContactName,
+  isLoading = false,
 }: MessageListProps) {
+  // Track chat transitions for animation
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [currentChatKey, setCurrentChatKey] = useState<string>("");
+
+  // Trigger transition animation when chat changes
+  useEffect(() => {
+    const newKey = chatMode === "group" 
+      ? `group-${selectedGroup?.groupId}` 
+      : `dm-${selectedContact}`;
+    
+    if (currentChatKey && newKey !== currentChatKey) {
+      setIsTransitioning(true);
+      // 250ms - quick transition
+      const timer = setTimeout(() => setIsTransitioning(false), 250);
+      return () => clearTimeout(timer);
+    }
+    setCurrentChatKey(newKey);
+  }, [chatMode, selectedGroup?.groupId, selectedContact]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Show loading skeleton
+  if (isLoading || isTransitioning) {
+    return (
+      <div 
+        className="flex-1 overflow-y-auto p-4 md:p-6" 
+        style={{ backgroundImage: CHAT_BG_PATTERN }}
+      >
+        <LoadingSkeleton />
+      </div>
+    );
+  }
+
+  // Generate unique key for force re-render on group/contact change
+  const containerKey = chatMode === "group" 
+    ? `group-${selectedGroup?.groupId?.toString() || 'none'}` 
+    : `dm-${selectedContact || 'none'}`;
+
   return (
     <div 
-      className="flex-1 overflow-y-auto p-4 md:p-6" 
+      key={containerKey}
+      className="flex-1 overflow-y-auto p-4 md:p-6 animate-fadeIn" 
       style={{ backgroundImage: CHAT_BG_PATTERN }}
     >
       {/* Group Messages */}
@@ -62,6 +101,55 @@ export function MessageList({
 // ============================================================================
 // Sub-components
 // ============================================================================
+
+function LoadingSkeleton() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full">
+      {/* Prominent Loading Card */}
+      <div className="bg-white rounded-3xl shadow-xl p-8 flex flex-col items-center gap-4 border border-gray-100">
+        {/* Animated Spinner */}
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-amber-100 rounded-full" />
+          <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-amber-500 rounded-full animate-spin" />
+          {/* Inner icon */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </div>
+        </div>
+        
+        {/* Loading Text */}
+        <div className="text-center">
+          <p className="text-gray-800 font-semibold text-lg">Loading Chat</p>
+          <p className="text-gray-500 text-sm mt-1">Fetching messages...</p>
+        </div>
+
+        {/* Bouncing Dots */}
+        <div className="flex gap-1.5 mt-2">
+          <span className="w-2.5 h-2.5 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: "0ms", animationDuration: "0.6s" }} />
+          <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: "150ms", animationDuration: "0.6s" }} />
+          <span className="w-2.5 h-2.5 bg-amber-600 rounded-full animate-bounce" style={{ animationDelay: "300ms", animationDuration: "0.6s" }} />
+        </div>
+      </div>
+
+      {/* Skeleton Preview Below */}
+      <div className="mt-8 w-full max-w-md px-4 opacity-30">
+        <div className="space-y-3 animate-pulse">
+          <div className="flex justify-start">
+            <div className="h-8 w-32 bg-gray-300 rounded-full" />
+          </div>
+          <div className="flex justify-end">
+            <div className="h-8 w-40 bg-amber-200 rounded-full" />
+          </div>
+          <div className="flex justify-start">
+            <div className="h-8 w-48 bg-gray-300 rounded-full" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EmptyState() {
   return (
@@ -116,10 +204,11 @@ function GroupMessageList({
 
   return (
     <div className="space-y-3 px-2 md:px-4">
-      {messages.map((msg, idx) => {
+      {messages.map((msg) => {
         const isEncrypted = msg.content === "[Encrypted]";
+        const msgKey = `${selectedGroup.groupId}-${msg.id?.toString() || msg.timestamp.getTime()}`;
         return (
-          <div key={idx} className={`flex ${msg.isFromMe ? "justify-end" : "justify-start"}`}>
+          <div key={msgKey} className={`flex message-item ${msg.isFromMe ? "justify-end" : "justify-start"}`}>
             <div className="inline-block">
               {!msg.isFromMe && (
                 <p className="text-xs text-gray-500 mb-1 ml-1">{shortenAddress(msg.from)}</p>
@@ -175,7 +264,7 @@ function DMMessageList({
         encryptedConversation.map((msg, idx) => {
           const isFromMe = msg.header.from.toLowerCase() === address?.toLowerCase();
           return (
-            <div key={idx} className={`flex ${isFromMe ? "justify-end" : "justify-start"}`}>
+            <div key={idx} className={`flex message-item ${isFromMe ? "justify-end" : "justify-start"}`}>
               <div className="inline-block">
                 <div className={`px-3 py-1 rounded-full ${
                   isFromMe
@@ -199,7 +288,7 @@ function DMMessageList({
       ) : (
         // Decrypted messages
         currentConversation.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.isFromMe ? "justify-end" : "justify-start"}`}>
+          <div key={idx} className={`flex message-item ${msg.isFromMe ? "justify-end" : "justify-start"}`}>
             <div className="inline-block">
               <div className={`px-3 py-1 rounded-full ${
                 msg.isFromMe
