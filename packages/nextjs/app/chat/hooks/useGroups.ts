@@ -2,7 +2,7 @@
 // useGroups Hook - Group management logic
 // ============================================================================
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { ethers } from "ethers";
 import { Group, GroupMessage, AttachmentType } from "../types";
 import { 
@@ -48,7 +48,7 @@ export function useGroups({
   const [inviteCode, setInviteCode] = useState("");
   const [newMemberAddress, setNewMemberAddress] = useState("");
 
-  // Load user's groups
+  // Load user's groups - optimized with parallel fetching
   const loadGroups = useCallback(async () => {
     if (!address) return;
     try {
@@ -56,29 +56,52 @@ export function useGroups({
       if (!contract) return;
       
       const nextGroupId = await contract.nextGroupId();
-      const loadedGroups: Group[] = [];
+      const groupCount = Number(nextGroupId);
       
-      for (let i = 0; i < Number(nextGroupId); i++) {
-        try {
-          const isMember = await contract.isGroupMember(BigInt(i), address);
-          if (isMember) {
-            const group = await contract.getGroup(BigInt(i));
-            if (group.exists) {
-              loadedGroups.push({
-                groupId: BigInt(i),
-                name: group.name,
-                metadataURI: group.metadataURI,
-                owner: group.owner,
-                createdAt: group.createdAt,
-                isClosed: group.isClosed,
-                exists: true,
-              });
-            }
-          }
-        } catch {
-          // Skip if group doesn't exist
-        }
+      if (groupCount === 0) {
+        setGroups([]);
+        return;
       }
+      
+      // Parallel check all memberships at once
+      const membershipChecks = await Promise.all(
+        Array.from({ length: groupCount }, (_, i) => 
+          contract.isGroupMember(BigInt(i), address).catch(() => false)
+        )
+      );
+      
+      // Get indices where user is a member
+      const memberGroupIds = membershipChecks
+        .map((isMember, idx) => isMember ? idx : -1)
+        .filter(idx => idx !== -1);
+      
+      if (memberGroupIds.length === 0) {
+        setGroups([]);
+        return;
+      }
+      
+      // Parallel fetch all group data for member groups
+      const groupDataResults = await Promise.all(
+        memberGroupIds.map(idx => 
+          contract.getGroup(BigInt(idx)).catch(() => null)
+        )
+      );
+      
+      // Build groups array
+      const loadedGroups: Group[] = [];
+      groupDataResults.forEach((group, i) => {
+        if (group && group.exists) {
+          loadedGroups.push({
+            groupId: BigInt(memberGroupIds[i]),
+            name: group.name,
+            metadataURI: group.metadataURI,
+            owner: group.owner,
+            createdAt: group.createdAt,
+            isClosed: group.isClosed,
+            exists: true,
+          });
+        }
+      });
       
       setGroups(loadedGroups);
     } catch (error) {
@@ -219,56 +242,105 @@ export function useGroups({
     }
   };
 
-  // Load group messages
-  const loadGroupMessages = async (groupId: bigint) => {
+  // Track current loading group to prevent race conditions
+  const currentLoadingGroupRef = useRef<string | null>(null);
+
+  // Load group messages - optimized with parallel fetching
+  const loadGroupMessages = useCallback(async (groupId: bigint) => {
     if (!address) return;
+    
+    const groupIdStr = groupId.toString();
+    currentLoadingGroupRef.current = groupIdStr;
+    
     try {
       const contract = getContract("read");
       if (!contract) return;
       
       const messageIds = await contract.getGroupMessageIds(groupId);
       
-      const handles: string[] = [];
-      const messages: GroupMessage[] = [];
-      
-      for (const id of messageIds) {
-        const header = await contract.getGroupMessageHeader(id);
-        const msgHandles: string[] = [];
-        
-        for (let i = 0; i < Number(header.chunkCount); i++) {
-          const chunk = await contract.getGroupMessageChunk(id, i);
-          const handleHex = normalizeHandle(chunk);
-          msgHandles.push(handleHex);
-          handles.push(handleHex);
-        }
-        
-        messages.push({
-          id,
-          groupId,
-          from: header.from,
-          timestamp: new Date(Number(header.timestamp) * 1000),
-          content: "[Encrypted]",
-          isFromMe: header.from.toLowerCase() === address.toLowerCase(),
-          attachmentType: AttachmentType.None,
-          chunkHandles: msgHandles,
-        });
+      if (currentLoadingGroupRef.current !== groupIdStr) return;
+      if (messageIds.length === 0) {
+        setGroupMessages([]);
+        return;
       }
       
+      // Parallel fetch all headers at once
+      const headers = await Promise.all(
+        messageIds.map((id: bigint) => contract.getGroupMessageHeader(id))
+      );
+      
+      if (currentLoadingGroupRef.current !== groupIdStr) return;
+      
+      // Parallel fetch all chunks for all messages
+      const allChunkPromises: Promise<{ msgIdx: number; chunkIdx: number; chunk: any }>[] = [];
+      
+      headers.forEach((header, msgIdx) => {
+        for (let i = 0; i < Number(header.chunkCount); i++) {
+          allChunkPromises.push(
+            contract.getGroupMessageChunk(messageIds[msgIdx], i)
+              .then((chunk: any) => ({ msgIdx, chunkIdx: i, chunk }))
+          );
+        }
+      });
+      
+      const chunkResults = await Promise.all(allChunkPromises);
+      
+      if (currentLoadingGroupRef.current !== groupIdStr) return;
+      
+      // Organize chunks by message
+      const chunksByMessage: Map<number, string[]> = new Map();
+      const allHandles: string[] = [];
+      
+      for (const { msgIdx, chunkIdx, chunk } of chunkResults) {
+        if (!chunksByMessage.has(msgIdx)) {
+          chunksByMessage.set(msgIdx, []);
+        }
+        const handleHex = normalizeHandle(chunk);
+        const msgChunks = chunksByMessage.get(msgIdx)!;
+        msgChunks[chunkIdx] = handleHex;
+        allHandles.push(handleHex);
+      }
+      
+      // Build messages array
+      const messages: GroupMessage[] = headers.map((header, idx) => ({
+        id: messageIds[idx],
+        groupId,
+        from: header.from,
+        timestamp: new Date(Number(header.timestamp) * 1000),
+        content: "[Encrypted]",
+        isFromMe: header.from.toLowerCase() === address.toLowerCase(),
+        attachmentType: AttachmentType.None,
+        chunkHandles: chunksByMessage.get(idx) || [],
+      }));
+      
+      // Sort by timestamp
+      messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+      
+      if (currentLoadingGroupRef.current !== groupIdStr) return;
+      
       setGroupMessages(messages);
-      if (handles.length > 0) {
-        setAllHandles(prev => [...new Set([...prev, ...handles])]);
+      
+      if (allHandles.length > 0) {
+        setAllHandles(prev => [...new Set([...prev, ...allHandles])]);
       }
       setStatusMessage(`Loaded ${messages.length} group messages`);
     } catch (error) {
       console.error("Failed to load group messages:", error);
     }
-  };
+  }, [address, getContract, setAllHandles, setStatusMessage]);
 
   // Select a group
   const selectGroup = async (group: Group) => {
+    // Clear previous messages first to prevent stale data
+    setGroupMessages([]);
+    setGroupMembers([]);
     setSelectedGroup(group);
-    await loadGroupMembers(group.groupId);
-    await loadGroupMessages(group.groupId);
+    
+    // Load new data
+    await Promise.all([
+      loadGroupMembers(group.groupId),
+      loadGroupMessages(group.groupId),
+    ]);
   };
 
   // Add member to group
