@@ -7,6 +7,40 @@
 @theme {
   --shadow-center: 0 0 12px -2px rgb(0 0 0 / 0.05);
   --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-fadeIn: fadeIn 0.3s ease-out forwards;
+  --animate-slideUp: slideUp 0.25s ease-out forwards;
+  --animate-messageIn: messageIn 0.2s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes messageIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @plugin "daisyui" {
@@ -124,3 +158,29 @@
 .link:hover {
   opacity: 80%;
 }
+
+/* Chat animation utilities */
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.25s ease-out forwards;
+}
+
+.animate-messageIn {
+  animation: messageIn 0.2s ease-out forwards;
+}
+
+/* Staggered message animation */
+.message-item {
+  animation: messageIn 0.2s ease-out forwards;
+  opacity: 0;
+}
+
+.message-item:nth-child(1) { animation-delay: 0ms; }
+.message-item:nth-child(2) { animation-delay: 30ms; }
+.message-item:nth-child(3) { animation-delay: 60ms; }
+.message-item:nth-child(4) { animation-delay: 90ms; }
+.message-item:nth-child(5) { animation-delay: 120ms; }
+.message-item:nth-child(n+6) { animation-delay: 150ms; }
