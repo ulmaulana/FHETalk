@@ -1,5 +1,5 @@
 // ============================================================================
-// Types & Interfaces - Extracted from ChatDemo.tsx
+// Types & Interfaces - Chat Module
 // ============================================================================
 
 export enum AttachmentType {
