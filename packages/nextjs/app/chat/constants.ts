@@ -1,5 +1,5 @@
 // ============================================================================
-// Constants - Extracted from ChatDemo.tsx
+// Constants - Chat Module
 // ============================================================================
 
 export const MAX_CHUNKS = 256; // 256 chunks * 8 bytes = 2048 bytes ~ 2000 chars
