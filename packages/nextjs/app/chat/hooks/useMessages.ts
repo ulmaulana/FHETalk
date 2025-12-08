@@ -80,7 +80,11 @@ export function useMessages({
 
     try {
       const contract = getContract("read");
-      if (!contract) throw new Error("Contract not available");
+      if (!contract) {
+        // Contract not ready yet, silently return - will retry when ready
+        setIsProcessing(false);
+        return;
+      }
 
       const [inboxIds, outboxIds] = await Promise.all([
         contract.getInboxIds(address),
@@ -233,7 +237,11 @@ export function useMessages({
 
       setStatusMessage("Sending transaction...");
       const contract = getContract("write");
-      if (!contract) throw new Error("Contract not available");
+      if (!contract) {
+        setStatusMessage("Contract not ready. Please wait and try again.");
+        setIsProcessing(false);
+        return;
+      }
 
       try {
         await contract.sendMessage.staticCall(recipient, handles, inputProof);

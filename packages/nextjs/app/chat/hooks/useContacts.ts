@@ -90,7 +90,11 @@ export function useContacts({
     setStatusMessage(currentlyBlocked ? "Unblocking user..." : "Blocking user...");
     try {
       const contract = getContract("write");
-      if (!contract) throw new Error("Contract not available");
+      if (!contract) {
+        setStatusMessage("Contract not ready. Please wait and try again.");
+        setIsProcessing(false);
+        return;
+      }
       const tx = await contract.setBlockStatus(targetAddress, !currentlyBlocked);
       await tx.wait();
       

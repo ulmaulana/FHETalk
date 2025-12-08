@@ -54,7 +54,11 @@ export function useProfile({
     setStatusMessage("Saving profile...");
     try {
       const contract = getContract("write");
-      if (!contract) throw new Error("Contract not available");
+      if (!contract) {
+        setStatusMessage("Contract not ready. Please wait and try again.");
+        setIsProcessing(false);
+        return;
+      }
       const tx = await contract.setProfile(profileName.trim(), profileAvatar.trim());
       await tx.wait();
       setStatusMessage("Profile saved!");

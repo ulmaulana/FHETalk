@@ -63,7 +63,7 @@ function ChatContent() {
   const { instance, isInitialized: isReady, status } = useFHEVM(fhevmConfig);
 
   // Contract hook
-  const { ethersSigner, getContract } = useContract();
+  const { ethersSigner, getContract, isContractReady } = useContract();
 
   // ========== SHARED STATE ==========
   const [statusMessage, setStatusMessage] = useState("");
@@ -127,20 +127,20 @@ function ChatContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.decryptedMessages]);
 
-  // Load profile and groups on mount
+  // Load profile and groups on mount - wait for contract to be ready
   useEffect(() => {
-    if (isReady && address) {
+    if (isReady && address && isContractReady) {
       profile.loadMyProfile();
       groups.loadGroups();
     }
-  }, [isReady, address]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isReady, address, isContractReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-load messages
+  // Auto-load messages - wait for contract to be ready
   useEffect(() => {
-    if (isReady && address && chatConfig.address) {
+    if (isReady && address && chatConfig.address && isContractReady) {
       messages.loadMessages();
     }
-  }, [isReady, address, chatConfig.address]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isReady, address, chatConfig.address, isContractReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Trigger transition animation when chat changes
   useEffect(() => {

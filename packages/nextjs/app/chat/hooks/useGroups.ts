@@ -143,7 +143,11 @@ export function useGroups({
     setStatusMessage("Creating group...");
     try {
       const contract = getContract("write");
-      if (!contract) throw new Error("Contract not available");
+      if (!contract) {
+        setStatusMessage("Contract not ready. Please wait and try again.");
+        setIsProcessing(false);
+        return;
+      }
       
       const roomCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       const roomCodeHash = ethers.keccak256(ethers.toUtf8Bytes(roomCode));
@@ -214,7 +218,11 @@ export function useGroups({
     setStatusMessage("Joining group...");
     try {
       const contract = getContract("write");
-      if (!contract) throw new Error("Contract not available");
+      if (!contract) {
+        setStatusMessage("Contract not ready. Please wait and try again.");
+        setIsProcessing(false);
+        return;
+      }
       
       const tx = await contract.joinGroupWithCode(BigInt(groupId), roomCode);
       await tx.wait();
@@ -357,7 +365,11 @@ export function useGroups({
     setStatusMessage("Adding member...");
     try {
       const contract = getContract("write");
-      if (!contract) throw new Error("Contract not available");
+      if (!contract) {
+        setStatusMessage("Contract not ready. Please wait and try again.");
+        setIsProcessing(false);
+        return;
+      }
       
       const tx = await contract.addMembers(selectedGroup.groupId, [newMemberAddress]);
       await tx.wait();
@@ -399,7 +411,11 @@ export function useGroups({
       const inputProof = toHex(ciphertexts.inputProof);
 
       const contract = getContract("write");
-      if (!contract) throw new Error("Contract not available");
+      if (!contract) {
+        setStatusMessage("Contract not ready. Please wait and try again.");
+        setIsProcessing(false);
+        return;
+      }
 
       const tx = await contract.sendGroupMessage(selectedGroup.groupId, handles, inputProof);
       await tx.wait();
