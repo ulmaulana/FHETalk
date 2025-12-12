@@ -65,7 +65,7 @@ function ChatContent() {
   }), [chainId, sepoliaRpcUrl]);
 
   // FHEVM hooks
-  const { instance, isInitialized: isReady, status, error } = useFHEVM(fhevmConfig);
+  const { instance, isInitialized: isReady, status } = useFHEVM(fhevmConfig);
 
   // Contract hook
   const { ethersSigner, getContract, isContractReady } = useContract();
