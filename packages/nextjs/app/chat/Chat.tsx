@@ -52,28 +52,14 @@ function ChatContent() {
   // Contract configuration
   const chatConfig = getContractConfig("FHETalk");
 
-  // FHEVM configuration - use Infura if set, fallback to publicnode
-  const sepoliaRpcUrl = useMemo(() => {
-    if (chainId === 31337) return "http://localhost:8545";
-    
-    // Primary: env variable (Infura/Alchemy)
-    // Fallback: publicnode (free, no rate limit)
-    const primary = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
-    const fallback = "https://ethereum-sepolia-rpc.publicnode.com";
-    
-    // Log untuk debugging (hapus setelah fix)
-    if (typeof window !== "undefined") {
-      console.log("[FHEVM] Using RPC:", primary ? "ENV (Infura/Alchemy)" : "Fallback (publicnode)");
-    }
-    
-    return primary || fallback;
-  }, [chainId]);
-
+  // FHEVM configuration
   const fhevmConfig = useMemo(() => ({
-    rpcUrl: sepoliaRpcUrl,
+    rpcUrl: chainId === 31337 
+      ? "http://localhost:8545" 
+      : (process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com"),
     chainId: chainId || 11155111,
     mockChains: { 31337: "http://localhost:8545" }
-  }), [chainId, sepoliaRpcUrl]);
+  }), [chainId]);
 
   // FHEVM hooks
   const { instance, isInitialized: isReady, status } = useFHEVM(fhevmConfig);
@@ -441,21 +427,10 @@ function ChatContent() {
 // Main Export with Provider
 // ============================================================================
 
-const getSepoliaRpcUrl = () => {
-  const primary = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
-  const fallback = "https://ethereum-sepolia-rpc.publicnode.com";
-  
-  if (typeof window !== "undefined") {
-    console.log("[FHEVM Provider] Using RPC:", primary ? "ENV (Infura/Alchemy)" : "Fallback (publicnode)");
-  }
-  
-  return primary || fallback;
-};
-
 export function Chat() {
   return (
     <FHEVMProvider config={{
-      rpcUrl: getSepoliaRpcUrl(),
+      rpcUrl: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
       chainId: 11155111,
       mockChains: { 31337: "http://localhost:8545" }
     }}>

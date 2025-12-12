@@ -355,9 +355,14 @@ export const createFhevmInstance = async (parameters: {
   const pub = await publicKeyStorageGet(aclAddress);
   throwIfAborted();
 
+  // Override rpcUrl if provided (fixes Alchemy demo rate limit issue)
+  const effectiveRpcUrl = rpcUrl || configBase.rpcUrl;
+  logger.debug("Using RPC URL:", effectiveRpcUrl);
+
   const config: FhevmInstanceConfig = {
     ...configBase,
     network: providerOrUrl,
+    rpcUrl: effectiveRpcUrl, // Override CDN's hardcoded Alchemy demo URL
     publicKey: pub.publicKey,
     publicParams: pub.publicParams,
   };
