@@ -25,13 +25,13 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.zama.org blob:",
-              "style-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
               "img-src 'self' data: blob: https:",
-              "font-src 'self' data:",
-              "connect-src 'self' https://cdn.zama.org https://*.infura.io https://*.alchemy.com https://*.publicnode.com https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org https://rpc.sepolia.org https://*.merkle.io https://*.coinbase.com wss://*.coinbase.com",
+              "font-src 'self' data: https://api.fontshare.com",
+              "connect-src 'self' https://cdn.zama.org https://*.infura.io https://*.alchemy.com https://*.publicnode.com https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org https://rpc.sepolia.org https://*.merkle.io https://*.coinbase.com wss://*.coinbase.com https://*.web3modal.org https://*.web3modal.com wss://*.web3modal.org wss://*.web3modal.com https://*.reown.com wss://*.reown.com",
               "worker-src 'self' blob:",
               "child-src 'self' blob:",
-              "frame-src 'self' https://*.walletconnect.com https://*.walletconnect.org",
+              "frame-src 'self' https://*.walletconnect.com https://*.walletconnect.org https://*.web3modal.org https://*.web3modal.com",
             ].join('; ')
           }
         ]
