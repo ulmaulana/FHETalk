@@ -16,6 +16,7 @@ interface ChatHeaderProps {
   onBack: () => void;
   onAddMember: () => void;
   onShareRoomCode: () => void;
+  onLeaveGroup: () => void;
   onBlockUser: (address: string) => void;
   getContactName: (address: string) => string;
 }
@@ -31,6 +32,7 @@ export function ChatHeader({
   onBack,
   onAddMember,
   onShareRoomCode,
+  onLeaveGroup,
   onBlockUser,
   getContactName,
 }: ChatHeaderProps) {
@@ -76,6 +78,17 @@ export function ChatHeader({
             </button>
           </>
         )}
+        {/* Leave Group - for all members */}
+        <button
+          onClick={onLeaveGroup}
+          disabled={isProcessing}
+          className="p-2 hover:bg-red-100 rounded-xl transition-colors text-red-500"
+          title="Leave group"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </button>
       </div>
     );
   }
@@ -101,20 +114,32 @@ export function ChatHeader({
           <h3 className="font-semibold text-gray-900 truncate">{getContactName(selectedContact)}</h3>
           <p className="text-xs text-gray-500 truncate">{selectedContact}</p>
         </div>
-        {/* Block Button */}
+        {/* Block/Unblock Button */}
         <button
           onClick={() => onBlockUser(selectedContact)}
           disabled={isProcessing}
-          className={`p-2 rounded-xl transition-colors ${
+          className={`p-2 rounded-xl transition-colors flex items-center gap-1.5 ${
             isBlocked
-              ? "bg-red-100 text-red-600 hover:bg-red-200"
-              : "hover:bg-gray-100 text-gray-500"
+              ? "bg-green-100 text-green-600 hover:bg-green-200"
+              : "bg-red-50 text-red-500 hover:bg-red-100"
           }`}
           title={isBlocked ? "Unblock user" : "Block user"}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-          </svg>
+          {isBlocked ? (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-xs font-medium hidden sm:inline">Unblock</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+              <span className="text-xs font-medium hidden sm:inline">Block</span>
+            </>
+          )}
         </button>
       </div>
     );
