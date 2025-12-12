@@ -52,21 +52,10 @@ function ChatContent() {
   // Contract configuration
   const chatConfig = getContractConfig("FHETalk");
 
-  // FHEVM configuration - use Infura if set, fallback to publicnode
+  // FHEVM configuration - use public RPC
   const sepoliaRpcUrl = useMemo(() => {
     if (chainId === 31337) return "http://localhost:8545";
-    
-    // Primary: env variable (Infura/Alchemy)
-    // Fallback: publicnode (free, no rate limit)
-    const primary = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
-    const fallback = "https://ethereum-sepolia-rpc.publicnode.com";
-    
-    // Log untuk debugging (hapus setelah fix)
-    if (typeof window !== "undefined") {
-      console.log("[FHEVM] Using RPC:", primary ? "ENV (Infura/Alchemy)" : "Fallback (publicnode)");
-    }
-    
-    return primary || fallback;
+    return "https://ethereum-sepolia-rpc.publicnode.com";
   }, [chainId]);
 
   const fhevmConfig = useMemo(() => ({
@@ -77,14 +66,6 @@ function ChatContent() {
 
   // FHEVM hooks
   const { instance, isInitialized: isReady, status, error } = useFHEVM(fhevmConfig);
-
-  // Debug: Log FHEVM error to console
-  useEffect(() => {
-    if (error) {
-      console.error("[FHEVM ERROR]", error.message, error);
-    }
-    console.log("[FHEVM STATUS]", status, { isReady, hasInstance: !!instance });
-  }, [error, status, isReady, instance]);
 
   // Contract hook
   const { ethersSigner, getContract, isContractReady } = useContract();
