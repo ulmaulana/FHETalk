@@ -391,6 +391,7 @@ function ChatContent() {
               onBack={handleBack}
               onAddMember={() => groups.setShowAddMember(true)}
               onShareRoomCode={() => groups.setShowRoomCode(true)}
+              onLeaveGroup={groups.leaveGroup}
               onBlockUser={contacts.toggleBlockUser}
               getContactName={contacts.getContactName}
             />
@@ -416,6 +417,9 @@ function ChatContent() {
               isReady={isReady}
               canSend={!!(contacts.selectedContact || groups.selectedGroup)}
               chatMode={chatMode}
+              isBlocked={chatMode === "dm" && contacts.selectedContact 
+                ? contacts.contacts.find(c => c.address.toLowerCase() === contacts.selectedContact?.toLowerCase())?.isBlocked 
+                : false}
               onChange={messages.setMessageInput}
               onSend={handleSendMessage}
             />
