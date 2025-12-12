@@ -10,6 +10,7 @@ interface MessageInputProps {
   isReady: boolean;
   canSend: boolean;
   chatMode: "dm" | "group";
+  isBlocked?: boolean;
   onChange: (value: string) => void;
   onSend: () => void;
 }
@@ -19,16 +20,33 @@ export function MessageInput({
   isProcessing,
   isReady,
   canSend,
-  // chatMode - kept in props for future use
+  isBlocked,
   onChange,
   onSend,
 }: MessageInputProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !isProcessing) {
+    if (e.key === "Enter" && !isProcessing && !isBlocked) {
       e.preventDefault();
       onSend();
     }
   };
+
+  const isDisabled = isProcessing || !canSend || isBlocked;
+
+  if (isBlocked) {
+    return (
+      <div className="bg-white border-t border-gray-200 p-3 sm:p-4 flex-shrink-0">
+        <div className="flex items-center justify-center gap-2 max-w-3xl mx-auto py-2">
+          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+          <span className="text-sm text-red-500 font-medium">
+            You have blocked this user. Unblock to send messages.
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white border-t border-gray-200 p-3 sm:p-4 flex-shrink-0">
@@ -42,7 +60,7 @@ export function MessageInput({
             onKeyDown={handleKeyDown}
             className="w-full h-11 px-4 pr-14 bg-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-all text-[15px]"
             maxLength={MAX_CHARS}
-            disabled={isProcessing || !canSend}
+            disabled={isDisabled}
           />
           <span className="absolute right-4 text-xs text-gray-400">
             {value.length}/{MAX_CHARS}
@@ -50,7 +68,7 @@ export function MessageInput({
         </div>
         <button
           onClick={onSend}
-          disabled={isProcessing || !isReady || !canSend || !value.trim()}
+          disabled={isDisabled || !isReady || !value.trim()}
           className="w-11 h-11 flex-shrink-0 flex items-center justify-center bg-amber-500 text-white rounded-full hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-amber-500/25"
         >
           {isProcessing ? (
