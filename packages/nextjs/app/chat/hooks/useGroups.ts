@@ -385,6 +385,35 @@ export function useGroups({
     }
   };
 
+  // Leave group
+  const leaveGroup = async () => {
+    if (!selectedGroup) return;
+    
+    setIsProcessing(true);
+    setStatusMessage("Leaving group...");
+    try {
+      const contract = getContract("write");
+      if (!contract) {
+        setStatusMessage("Contract not ready. Please wait and try again.");
+        setIsProcessing(false);
+        return;
+      }
+      
+      const tx = await contract.leaveGroup(selectedGroup.groupId);
+      await tx.wait();
+      
+      setStatusMessage("Left group successfully");
+      setSelectedGroup(null);
+      setGroupMessages([]);
+      setGroupMembers([]);
+      await loadGroups();
+    } catch (error) {
+      setStatusMessage(`Error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // Send group message
   const sendGroupMessage = async (messageInput: string, clearInput: () => void) => {
     if (!selectedGroup || !messageInput.trim()) return;
@@ -453,6 +482,7 @@ export function useGroups({
     loadGroups,
     createGroup,
     joinGroup,
+    leaveGroup,
     loadGroupMembers,
     loadGroupMessages,
     selectGroup,
