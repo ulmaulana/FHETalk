@@ -14,30 +14,31 @@ const nextConfig: NextConfig = {
     config.externals.push("pino-pretty", "lokijs", "encoding");
     return config;
   },
-  // Add script loading for FHEVM relayer SDK
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.zama.org blob:",
-              "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
-              "img-src 'self' data: blob: https:",
-              "font-src 'self' data: https://api.fontshare.com",
-              "connect-src 'self' https://cdn.zama.org https://*.infura.io https://*.alchemy.com https://*.publicnode.com https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org https://rpc.sepolia.org https://*.merkle.io https://*.coinbase.com wss://*.coinbase.com https://*.web3modal.org https://*.web3modal.com wss://*.web3modal.org wss://*.web3modal.com https://*.reown.com wss://*.reown.com",
-              "worker-src 'self' blob:",
-              "child-src 'self' blob:",
-              "frame-src 'self' https://*.walletconnect.com https://*.walletconnect.org https://*.web3modal.org https://*.web3modal.com",
-            ].join('; ')
-          }
-        ]
-      }
-    ];
-  },
+  // CSP disabled temporarily for debugging FHEVM issue on Vercel
+  // TODO: Re-enable after fixing FHEVM loading issue
+  // async headers() {
+  //   return [
+  //     {
+  //       source: '/(.*)',
+  //       headers: [
+  //         {
+  //           key: 'Content-Security-Policy',
+  //           value: [
+  //             "default-src 'self'",
+  //             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.zama.org blob:",
+  //             "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
+  //             "img-src 'self' data: blob: https:",
+  //             "font-src 'self' data: https://api.fontshare.com",
+  //             "connect-src 'self' https://cdn.zama.org https://*.infura.io https://*.alchemy.com https://*.publicnode.com https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org https://rpc.sepolia.org https://*.merkle.io https://*.coinbase.com wss://*.coinbase.com https://*.web3modal.org https://*.web3modal.com wss://*.web3modal.org wss://*.web3modal.com https://*.reown.com wss://*.reown.com",
+  //             "worker-src 'self' blob:",
+  //             "child-src 'self' blob:",
+  //             "frame-src 'self' https://*.walletconnect.com https://*.walletconnect.org https://*.web3modal.org https://*.web3modal.com",
+  //           ].join('; ')
+  //         }
+  //       ]
+  //     }
+  //   ];
+  // },
   // Proxy WASM file to bypass CORS issues
   async rewrites() {
     return [
