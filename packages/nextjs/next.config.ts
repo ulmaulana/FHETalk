@@ -22,7 +22,17 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.zama.org https://cdn.zama.ai;"
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.zama.org blob:",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://cdn.zama.org https://*.infura.io https://*.alchemy.com https://ethereum-sepolia-rpc.publicnode.com https://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.com wss://*.walletconnect.org https://rpc.sepolia.org https://*.zama.ai",
+              "worker-src 'self' blob:",
+              "child-src 'self' blob:",
+              "frame-src 'self' https://*.walletconnect.com https://*.walletconnect.org",
+            ].join('; ')
           }
         ]
       }
