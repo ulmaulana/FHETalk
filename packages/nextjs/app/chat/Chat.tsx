@@ -54,7 +54,7 @@ function ChatContent() {
 
   // FHEVM configuration
   const fhevmConfig = useMemo(() => ({
-    rpcUrl: chainId === 31337 ? "http://localhost:8545" : "https://eth-sepolia.g.alchemy.com/v2/demo",
+    rpcUrl: chainId === 31337 ? "http://localhost:8545" : (process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com"),
     chainId: chainId || 11155111,
     mockChains: { 31337: "http://localhost:8545" }
   }), [chainId]);
@@ -428,7 +428,7 @@ function ChatContent() {
 export function Chat() {
   return (
     <FHEVMProvider config={{
-      rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/demo",
+      rpcUrl: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
       chainId: 11155111,
       mockChains: { 31337: "http://localhost:8545" }
     }}>

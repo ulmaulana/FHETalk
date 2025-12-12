@@ -41,7 +41,7 @@ export const DappWrapperWithProviders = ({ children }: { children: React.ReactNo
             <main className="relative flex flex-col flex-1">
               <FHEVMErrorBoundary>
                 <ClientFHEVMProvider config={{
-                  rpcUrl: "https://eth-sepolia.g.alchemy.com/v2/demo",
+                  rpcUrl: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
                   chainId: 11155111,
                   mockChains: {
                     31337: "http://localhost:8545"
